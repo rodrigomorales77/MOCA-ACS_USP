@@ -1,0 +1,85 @@
+services:
+  moca-mongodb:
+    image: mongo:4.4
+    container_name: moca-mongodb
+    restart: unless-stopped
+    init: true
+    volumes:
+      - ./data/mongodb:/data/db
+    networks:
+      - moca-net
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  moca-genieacs:
+    image: drumsergio/genieacs:latest
+    container_name: moca-genieacs
+    restart: unless-stopped
+    depends_on:
+      moca-mongodb:
+        condition: service_healthy
+    environment:
+      - GENIEACS_MONGODB_CONNECTION_URL=mongodb://moca-mongodb:27017/genieacs
+      - GENIEACS_CWMP_INTERFACE=0.0.0.0
+      - GENIEACS_CWMP_PORT=7547
+      - GENIEACS_NBI_INTERFACE=0.0.0.0
+      - GENIEACS_NBI_PORT=7557
+      - GENIEACS_FS_INTERFACE=0.0.0.0
+      - GENIEACS_FS_PORT=7567
+      - GENIEACS_UI_INTERFACE=0.0.0.0
+      - GENIEACS_UI_PORT=3001
+      - GENIEACS_UI_JWT_SECRET=${GENIEACS_UI_JWT_SECRET}
+      - GENIEACS_CWMP_ACCESS_LOG_FILE=/dev/stdout
+      - GENIEACS_NBI_ACCESS_LOG_FILE=/dev/stdout
+      - GENIEACS_DEBUG_FILE=/dev/stdout
+      - GENIEACS_LOG_FILE=/dev/stdout
+    ports:
+      - "10.0.2.14:7547:7547"
+      - "190.92.103.227:3001:3001"
+    volumes:
+      - ./data/genieacs:/opt/genieacs/ext
+    networks:
+      - moca-net
+
+  moca-backend:
+    build: ./backend
+    container_name: moca-backend
+    restart: unless-stopped
+    init: true
+    depends_on:
+      moca-mongodb:
+        condition: service_healthy
+    env_file: .env
+    volumes:
+      - ./data/sqlite:/app/data
+    networks:
+      - moca-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "10.0.2.14:3000:3000"
+
+  moca-nginx:
+    image: nginx:alpine
+    container_name: moca-nginx
+    restart: unless-stopped
+    depends_on:
+      moca-backend:
+        condition: service_healthy
+    ports:
+      - "190.92.103.227:80:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    networks:
+      - moca-net
+
+networks:
+  moca-net:
+    driver: bridge

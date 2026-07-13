@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MOCA ACS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="assets/css/variables.css" />
+  <link rel="stylesheet" href="assets/css/main.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/dashboard.css" />
+  <style>
+    .demo-banner {
+      background: linear-gradient(90deg, #d97706 0%, #dc2626 100%);
+      color: white;
+      padding: 12px 16px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <!-- DEMO Banner -->
+  <div class="demo-banner">
+    <span>⚠️ DEMO - Sistema en fase de prueba. No apto para producción.</span>
+  </div>
+
+  <!-- Login screen (visible cuando no hay sesión) -->
+  <div id="login-screen" class="login-screen hidden"></div>
+
+  <!-- App shell (visible cuando hay sesión) -->
+  <div id="app-shell" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar"></aside>
+    <div class="main-area">
+      <header id="header" class="header"></header>
+      <main id="page-content" class="page-content"></main>
+    </div>
+  </div>
+
+  <script src="assets/js/api-client.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/components/badge.js"></script>
+  <script src="assets/js/components/modal.js"></script>
+  <script src="assets/js/components/date-picker.js"></script>
+  <script src="assets/js/components/loading-overlay.js"></script>
+  <script src="assets/js/components/table.js"></script>
+  <script src="assets/js/components/sidebar.js"></script>
+  <script src="assets/js/components/header.js"></script>
+  <script src="assets/js/pages/login.js"></script>
+  <script src="assets/js/pages/dashboard.js"></script>
+  <script src="assets/js/pages/devices.js"></script>
+  <script src="assets/js/pages/device-detail.js"></script>
+  <script src="assets/js/pages/faults.js"></script>
+  <script src="assets/js/pages/firmwares.js"></script>
+  <script src="assets/js/pages/pending-actions.js"></script>
+  <script src="assets/js/pages/users.js"></script>
+  <script src="assets/js/pages/audit.js"></script>
+  <script src="assets/js/router.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

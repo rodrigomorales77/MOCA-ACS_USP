@@ -1,0 +1,37 @@
+:root {
+  /* Paleta pastel tecnológica */
+  --color-bg:           #F0F4F8;
+  --color-bg-card:      #FFFFFF;
+  --color-bg-sidebar:   #1E2A3A;
+  --color-sidebar-text: #CBD5E1;
+  --color-sidebar-active: #6C9BCF;
+  --color-primary:      #6C9BCF;
+  --color-primary-dark: #4A7AB5;
+  --color-accent:       #7EC8A4;
+  --color-accent-dark:  #5BAD87;
+  --color-warning:      #F4A96A;
+  --color-danger:       #E07B8A;
+  --color-text:         #2D3748;
+  --color-text-muted:   #718096;
+  --color-border:       #E2E8F0;
+  --color-online:       #7EC8A4;
+  --color-offline:      #E07B8A;
+  --color-fault:        #F4A96A;
+
+  /* Tipografía */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-size-xs:   0.75rem;
+  --font-size-sm:   0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg:   1.125rem;
+  --font-size-xl:   1.25rem;
+  --font-size-2xl:  1.5rem;
+
+  /* Espaciado */
+  --sidebar-width: 240px;
+  --header-height: 60px;
+  --radius:        8px;
+  --radius-lg:     12px;
+  --shadow:        0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:     0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+}

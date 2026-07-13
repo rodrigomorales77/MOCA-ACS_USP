@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  moca-simulator:
+    build: ./simulator
+    container_name: moca-simulator
+    environment:
+      - SIMULATOR_ACS_URL=${SIMULATOR_ACS_URL:-http://moca-genieacs:7547}
+      - SIMULATOR_DEVICE_COUNT=${SIMULATOR_DEVICE_COUNT:-10}
+    networks:
+      - moca-net
+
+networks:
+  moca-net:
+    external: true
+    name: moca-acs_usp_moca-net

@@ -1,0 +1,23 @@
+# Secrets
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Data
+data/
+
+# OS
+.DS_Store
+
+# AI
+CLAUDE.md
+.claude/
+
+# Editor / Obsidian
+.obsidian/
+
+# Private Docs
+docs/genie-*
+docs/superpowers/
