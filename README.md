@@ -13,13 +13,16 @@
 **Partner:** Agustin Sanchez
 
 **Tech Stack:**
-- ACS core: [TBD — in repo]
+- ACS core: GenieACS (TR-069), Mongo DB 4.4
+- API: Node.js/Express (v1.5.x), SQLite, JWT
+- Frontend: HTML/CSS/JS vanilla (SPA ligera)
+- Infra: Docker Compose (nginx, backend, genieacs, simulador)
 - Target equipment: Zhone DZS, Huawei OLT, ZTE ONT
 - Monitoring: Statistics collection, health checks
 - Escalation: Link to CAC/CRM
 
 **GitHub:** rodrigomorales77/moca-acs (private)
-**Local:** ~/projects/moca-acs
+**Local:** /home/asg/projects/lab/MOCA-ACS_USP
 
 **Timeline:** TODD pilot first, then productize
 
