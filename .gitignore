@@ -1,5 +1,6 @@
 # Secrets
 .env
+plantillas/
 
 # Node
 node_modules/
