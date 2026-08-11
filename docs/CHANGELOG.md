@@ -7,7 +7,11 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ### Added
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
 - `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6, matriz de features, cobertura del catálogo v1
+- `docs/PROPUESTAS_DECISIONES_ONT_GATEWAY.md`: borrador de propuestas para las decisiones abiertas del diseño (capacidades por modelo, PK `device_id`, `wan.mode` por instancias, timeout de tareas) — para validación del equipo
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
+
+### Fixed
+- `tools/inventory/parse_tree.py`: `device_id` poblado en los volcados `.params.json` (usaba la clave `ID` en mayúscula en lugar de `id`)
 
 ### Security
 - `plantillas/` (árboles TR-069 exportados) quedó commiteada en el historial y contiene credenciales en claro (passwords PPPoE, `ConnectionRequestPassword`) y claves privadas RSA. Remediation aplicada: dejó de trackearse (`git rm --cached`) y se añadió al `.gitignore`; los archivos permanecen solo en local.
@@ -15,6 +19,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 
 ### Changed
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
+- `docs/INVENTARIO_ONT.md`: validación de Huawei HS8145X6 con export del 2026-08-11 — PPPoE activo (`ConnectionStatus=Connected`, `ExternalIPAddress`), óptico poblado (`RXPower/TXPower` en dBm entero, `Temperature` en °C) y VLAN vía `X_HW_VLAN` en la instancia activa
 
 ---
 

@@ -12,7 +12,7 @@ mapping y los transformers.
 
 ## 1. Fuentes de datos
 
-Directorio `plantillas/` (6 archivos, 2 formatos de exportación):
+Directorio `plantillas/` (7 archivos, 2 formatos de exportación):
 
 | Archivo | Formato | Modelo detectado | Export |
 |---|---|---|---|
@@ -22,6 +22,7 @@ Directorio `plantillas/` (6 archivos, 2 formatos de exportación):
 | `device-model-ZNID2426A.csv` | CSV estándar RFC 4180 | ZNID-GPON-2426A-NA | Aug 8 |
 | `tr-tree-2426a1.csv` | Legacy (filas envueltas en comillas) | ZNID-GPON-2426A1-00 | Jul 8 |
 | `tr-tree-hs8145x6.csv` | Legacy (filas envueltas en comillas) | HS8145X6 | Jul 8 |
+| `device-model-HS8145X6.csv` | CSV estándar RFC 4180 | HS8145X6 | Aug 11 |
 
 Ambos formatos comparten las mismas 12 columnas
 (`Parameter, Object, ..., Writable, ..., Value, Value type, ..., Notification, ...`).
@@ -49,6 +50,10 @@ por archivo. Los `ZNID24xxA1-00` (2424A1/2426A1) y `ZNID24xx` usan serial
 
 Huawei (referencia, ya analizado): HS8145X6, FW V5R021C00S050, TR-098, 3568 params.
 
+El export `device-model-HS8145X6.csv` (Aug 11) es una **segunda unidad HS8145X6** (serial
+`5A4E54533A01D993`, misma FW/HW) con **PPPoE activo y óptico poblado**, lo que cierra las
+brechas de validación de Huawei (§5).
+
 ## 3. Regenerar el inventario
 
 ```bash
@@ -70,13 +75,13 @@ se nombra con sufijo del archivo fuente.
 | WiFi 2.4G (`WLANConfiguration.1`) | — | — | sí (radio off) | sí (radio off) | sí |
 | WiFi 5G (`WLANConfiguration.5`) | — | — | — | — | sí |
 | GPON `*_String` (rx/tx/temp) | sí | **—** | sí | sí | — (otra ruta) |
-| GPON crudo (`RxLevel`/`TxLevel`) | sí | sí | sí | sí | `X_GponInterafceConfig.*` (vacío) |
-| `diagnostics.cpu_util` | sí | **—** | sí | sí | — |
+| GPON crudo (`RxLevel`/`TxLevel`) | sí | sí | sí | sí | `X_GponInterafceConfig.*` **validado** |
+| `diagnostics.temperature` | sí | **—** | sí | sí | — |
 | `X_BROADCOM_COM_XPON` (XPON/XGS-PON) | sí | — | sí | — | — |
 | Diagnósticos transferencia (DL/UL) | sí | **—** | sí | sí | sí |
 | Dot1x (`X_ZHONE_Dot1xPaeSystemObject`) | esqueleto | **completo (314)** | esqueleto | esqueleto | — |
 | QueueManagement (colas QoS) | 23 | 19 | **471** | **470** | 32 |
-| Bridge PPPoE activo (`LANDevice.N`) | 9 | 13 | 12 | 9 | — (WANIP/PPPoE clásico) |
+| Bridge PPPoE activo (`LANDevice.N`) | 9 | 13 | 12 | 9 | — (WAN clásico) |
 
 ## 5. Diferencias estructurales entre modelos
 
@@ -118,6 +123,31 @@ no estructura.
 | `gpon.loid` / `gpon.distance` / `gpon.ploam` | **no existen** en ningún árbol |
 | `actions.ping` | `IPPingDiagnostics` en los 4 |
 
+### 6.1 Validación Huawei (export `device-model-HS8145X6`, Aug 11)
+
+Cierra las brechas pendientes de §5: el snapshot trae **PPPoE conectado y óptico poblado**.
+
+| Canónico | Ruta Huawei validada | Valor real |
+|---|---|---|
+| `wan.mode` | `WANConnectionDevice.1.WANPPPConnection.1.ConnectionType` | `IP_Routed` |
+| `wan.status` | `...WANPPPConnection.1.ConnectionStatus` | `Connected` |
+| `wan.ip` | `...WANPPPConnection.1.ExternalIPAddress` (RO) | `172.17.61.231` |
+| `wan.pppoe.username` | `...WANPPPConnection.1.Username` (RW) | `juancarlosfelix` |
+| `wan.pppoe.password` | `...WANPPPConnection.1.Password` (WO, vacío de vuelta) | — |
+| `wan.nat.enabled` | `...WANPPPConnection.1.NATEnabled` | `true` |
+| `wan.vlan_id` | `...WANPPPConnection.1.X_HW_VLAN` (instancia activa) | `145` |
+| `gpon.status` | `WANDevice.1.X_GponInterafceConfig.Status` | `Up` |
+| `gpon.rx_power` | `...X_GponInterafceConfig.RXPower` | `-17` (dBm) |
+| `gpon.tx_power` | `...X_GponInterafceConfig.TXPower` | `2` (dBm) |
+| `diagnostics.temperature` | `...X_GponInterafceConfig.TransceiverTemperature` | `38` (°C) |
+| (extras) | `BiasCurrent=5` (mA), `SupplyVoltage=3338` (mV) | |
+
+**Escalas confirmadas:** Huawei reporta potencias ópticas en **dBm entero** (RX puede ser
+negativo, TX positivo) y temperatura en °C — *no* usa la escala ×0.1 dBm que el diseño §8.1
+anticipaba. El transformer `dbm_milli_to_dbm` no aplica aquí; alcanza con parseo de entero.
+`wan.vlan_id` vive en `X_HW_VLAN` de la instancia activa (PPPoE=145, IPoE=10), no en la ruta
+estándar del WAN.
+
 ## 7. Hallazgos relevantes
 
 - **WAN = bridge total.** LAN IP `0.0.0.0`, DHCP off, NAT false, sin WANIPConnection
@@ -130,6 +160,9 @@ no estructura.
   diferencia estructural es el subárbol `WANDevice.*` (interfaces físicas Ethernet/GPON,
   ambas disabled) presente en la export nueva. No es cambio de firmware, es cobertura
   del export. Las dos unidades del mismo modelo son representativas entre sí.
+- **Huawei viejo vs nuevo (HS8145X6):** sin diferencias estructurales (las 103 rutas solo
+  en el viejo son estado dinámico: `AssociatedDevice`, Stats, Hosts; las 6 solo en el nuevo
+  son `DeviceLog` y `ManageableDevice.1`). La export nueva aporta valores de PPPoE/óptico.
 - **Seguridad:** las planillas contienen credenciales en claro (PPPoE `Password`,
   `ConnectionRequestPassword`, y una clave privada RSA en `CertificateCfg.1.PrivKey`).
   El parser las **enmascara** en los volcados (`[REDACTED]`); `plantillas/` no se
