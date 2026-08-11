@@ -11,6 +11,10 @@ data/
 # OS
 .DS_Store
 
+# Python
+__pycache__/
+*.pyc
+
 # AI
 CLAUDE.md
 .claude/

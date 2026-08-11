@@ -2,8 +2,11 @@
 """
 Inventario de árboles TR-069 exportados desde GenieACS.
 
-Parseo del formato de exportación de GenieACS (CSV con fila envuelta en comillas y
-valores con comillas escapadas), normalización y volcado a data/inventory/.
+Soporta dos formatos de exportación:
+- Legacy (`tr-tree-*.csv`): filas lógicas envueltas en comillas con escapado "",
+  continuaciones multi-línea para DeviceLog repartidas en líneas físicas.
+- Estándar (`device-model-*.csv`): CSV RFC 4180 con header y valores multilínea
+  manejados de forma nativa por csv.reader.
 
 Uso:
     parse_tree.py <input.csv> [<input.csv> ...] --out <dir>
@@ -14,9 +17,15 @@ Por cada archivo genera:
 
 Además genera:
     index.json             (identidad del equipo, perfil detectado, estadísticas)
-    analysis.md            (informe por perfil + cobertura del catálogo + comparación)
+    analysis.md            (informe por perfil + cobertura del catálogo + feature-detect
+                            + comparación entre perfiles)
 
-Los valores sensibles (password, keys, secrets) se enmascaran en el volcado.
+El perfil se nombra por fabricante + DeviceInfo.ModelName + árbol (fallback a
+ProductClass cuando no hay ModelName), porque ProductClass no es único entre
+modelos (p. ej. ZNID24xxA1 agrupa 2424A1 y 2426A1).
+
+Los valores sensibles (password, keys, secrets, privkey, connection request) se
+enmascaran en el volcado.
 """
 
 import argparse
@@ -29,12 +38,16 @@ from collections import Counter
 from pathlib import Path
 
 PARAM_RE = re.compile(r'^[A-Za-z_][A-Za-z0-9_.]*$')
-SENSITIVE_RE = re.compile(r'(password|passphrase|presharedkey|wepkey|secret|credential|token)', re.I)
+SENSITIVE_RE = re.compile(
+    r'(password|passphrase|presharedkey|wepkey|secret|credential|token|privkey|connectionrequest)',
+    re.I,
+)
 MASK = '[REDACTED]'
+HEADER_MARK = 'Parameter'
 
 
 def parse_line(raw: str) -> list[str]:
-    """Decodifica una línea del formato de exportación de GenieACS."""
+    """Decodifica una línea del formato legacy de exportación de GenieACS."""
     raw = raw.rstrip('\r\n')
     if raw.startswith('"'):
         idx = raw.rfind('"')
@@ -45,14 +58,38 @@ def parse_line(raw: str) -> list[str]:
     return parsed[0] if parsed else []
 
 
-def parse_file(fn: str) -> list[list[str]]:
+def detect_format(fn: str) -> str:
     """
-    Devuelve las filas del archivo. Maneja el caso del parámetro DeviceLog, cuyo
-    valor multilínea se reparte en varias líneas físicas (continuación sin comilla
-    inicial y sin campo Parameter).
+    Distingue export estándar del legacy. Ambos comparten el header; el legacy
+    envuelve cada fila lógica entre comillas (la primera fila de datos empieza
+    con `"DeviceID.ID,...`), el estándar empieza `DeviceID.ID,...`.
     """
-    records: list[list[str]] = []
-    current: list[str] | None = None
+    with open(fn, newline='', encoding='utf-8-sig') as f:
+        first = f.readline().lstrip('\ufeff').rstrip('\r\n')
+        second = f.readline().rstrip('\r\n')
+    if first.startswith('"') or second.startswith('"'):
+        return 'legacy'
+    return 'standard'
+
+
+def parse_standard(fn: str) -> list[list[str]]:
+    """Export estándar: csv.reader maneja las multilíneas de forma nativa."""
+    records = []
+    with open(fn, newline='', encoding='utf-8-sig') as f:
+        for row in csv.reader(f):
+            if not row:
+                continue
+            if row[0] == HEADER_MARK or not PARAM_RE.match(row[0]):
+                continue
+            if len(row) >= 8:
+                records.append(row)
+    return records
+
+
+def parse_legacy(fn: str) -> list[list[str]]:
+    """Export legacy: reconstruye continuaciones multi-línea de DeviceLog."""
+    records = []
+    current = None
     with open(fn, newline='', encoding='utf-8-sig') as f:
         for raw in f:
             raw = raw.rstrip('\r\n')
@@ -61,12 +98,18 @@ def parse_file(fn: str) -> list[list[str]]:
             row = parse_line(raw)
             if not row:
                 continue
-            if PARAM_RE.match(row[0]):
+            if row[0] == HEADER_MARK:
+                continue
+            if PARAM_RE.match(row[0]) and len(row) >= 8:
                 current = row
                 records.append(row)
             elif current is not None and len(current) > 5:
                 current[5] += '\n' + ','.join(row)
     return records
+
+
+def parse_file(fn: str) -> list[list[str]]:
+    return parse_standard(fn) if detect_format(fn) == 'standard' else parse_legacy(fn)
 
 
 def normalize_name(name: str) -> str:
@@ -80,6 +123,11 @@ def normalize_name(name: str) -> str:
     return m.replace(' ', '_') or 'UNKNOWN'
 
 
+def slugify(value: str) -> str:
+    value = re.sub(r'[^A-Za-z0-9._-]+', '_', value.strip())
+    return value or 'UNKNOWN'
+
+
 def mask_value(param: str, value: str) -> str:
     if value and SENSITIVE_RE.search(param):
         return MASK
@@ -87,7 +135,7 @@ def mask_value(param: str, value: str) -> str:
 
 
 def build_records(rows: list[list[str]]):
-    """Convierte filas crudas en dicts normalizados."""
+    """Convierte filas crudas en dicts normalizados (con valores enmascarados)."""
     recs = []
     for r in rows:
         if len(r) < 8:
@@ -103,6 +151,22 @@ def build_records(rows: list[list[str]]):
     return recs
 
 
+def extract_identity(recs) -> dict:
+    """Identidad desde DeviceID.* y DeviceInfo.* (ModelName, HW, SW)."""
+    identity = {}
+    for r in recs:
+        p = r['parameter']
+        if p.startswith('DeviceID.'):
+            identity[p[len('DeviceID.'):].lower()] = r['value']
+        elif p.endswith('.DeviceInfo.ModelName'):
+            identity['model_name'] = r['value']
+        elif p.endswith('.DeviceInfo.HardwareVersion'):
+            identity['hardware_version'] = r['value']
+        elif p.endswith('.DeviceInfo.SoftwareVersion'):
+            identity['software_version'] = r['value']
+    return identity
+
+
 def detect_tree(recs) -> str:
     igd = sum(1 for r in recs if r['parameter'].startswith('InternetGatewayDevice'))
     dev = sum(1 for r in recs if r['parameter'].startswith('Device.'))
@@ -113,8 +177,16 @@ def detect_tree(recs) -> str:
     return 'UNKNOWN'
 
 
+def compute_profile(recs):
+    identity = extract_identity(recs)
+    tree = detect_tree(recs)
+    return profile_name(identity, tree), identity, tree
+
+
 def profile_name(identity: dict, tree: str) -> str:
-    return f"{normalize_name(identity['manufacturer'])}_{identity['productclass']}_{tree}"
+    mfr = normalize_name(identity.get('manufacturer', 'UNKNOWN'))
+    model = identity.get('model_name') or identity.get('productclass') or 'UNKNOWN'
+    return f'{mfr}_{slugify(model)}_{tree}'
 
 
 def analyze(recs) -> dict:
@@ -136,15 +208,9 @@ def analyze(recs) -> dict:
     }
 
 
-def write_inventory(fn: Path, rows: list[list[str]], outdir: Path):
+def write_inventory(fn: Path, rows: list[list[str]], profile: str, identity: dict,
+                    tree: str, outdir: Path) -> dict:
     recs = build_records(rows)
-    identity = {}
-    for r in recs:
-        key = r['parameter']
-        if key.startswith('DeviceID.'):
-            identity[key[len('DeviceID.'):].lower()] = r['value']
-    tree = detect_tree(recs)
-    profile = profile_name(identity, tree)
     stats = analyze(recs)
 
     with open(outdir / f'{profile}.params.csv', 'w', newline='', encoding='utf-8') as f:
@@ -166,13 +232,12 @@ def write_inventory(fn: Path, rows: list[list[str]], outdir: Path):
     with open(outdir / f'{profile}.params.json', 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False, indent=1)
 
-    return profile, identity, tree, stats
+    return stats
 
 
 def load_recs(outdir: Path, profile: str):
     with open(outdir / f'{profile}.params.json', encoding='utf-8') as f:
-        data = json.load(f)
-    return data
+        return json.load(f)
 
 
 def fmt_value(r):
@@ -182,9 +247,117 @@ def fmt_value(r):
     return v.replace('\n', '\\n')
 
 
+# Rutas canónicas del catálogo v1 (docs/DISENO_ABSTRACCION_ONT.md) -> rutas candidatas.
+CATALOG = {
+    'device.serial': ['InternetGatewayDevice.DeviceInfo.SerialNumber'],
+    'device.manufacturer': ['InternetGatewayDevice.DeviceInfo.Manufacturer'],
+    'device.model': ['InternetGatewayDevice.DeviceInfo.ModelName'],
+    'device.hardware_version': ['InternetGatewayDevice.DeviceInfo.HardwareVersion'],
+    'device.software_version': ['InternetGatewayDevice.DeviceInfo.SoftwareVersion'],
+    'device.uptime': ['InternetGatewayDevice.DeviceInfo.UpTime'],
+    'device.provisioning_code': ['InternetGatewayDevice.DeviceInfo.ProvisioningCode'],
+    'wifi.radio.2g.enabled': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable'],
+    'wifi.radio.2g.ssid': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID'],
+    'wifi.radio.2g.password': [
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey',
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase'],
+    'wifi.radio.2g.channel': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Channel'],
+    'wifi.radio.2g.security': [
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BeaconType',
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BasicAuthenticationMode',
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BasicEncryptionModes',
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.IEEE11iAuthenticationMode',
+        'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.IEEE11iEncryptionModes'],
+    'wifi.radio.5g.enabled': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable'],
+    'wifi.radio.5g.ssid': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID'],
+    'lan.ip': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress'],
+    'lan.netmask': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceSubnetMask'],
+    'lan.dhcp.enabled': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DHCPServerEnable'],
+    'lan.dhcp.pool_start': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MinAddress'],
+    'lan.dhcp.pool_end': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MaxAddress'],
+    'lan.dhcp.lease_time': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DHCPLeaseTime'],
+    'lan.dhcp.dns.primary': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DNSServers'],
+    'wan.mode': [
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionType',
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.ConnectionType',
+        'InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_ConnectionType'],
+    'wan.ip': ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.ExternalIPAddress'],
+    'wan.nat.enabled': [
+        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.NATEnabled',
+        'InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_NATenabled'],
+    'gpon.rx_power': [
+        'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
+        'InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevelString'],
+    'gpon.tx_power': [
+        'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TXPower',
+        'InternetGatewayDevice.X_ZHONE_COM_GPON.TxLevelString'],
+    'gpon.status': [
+        'InternetGatewayDevice.X_ZHONE_COM_GPON.GponOperStatus',
+        'InternetGatewayDevice.X_HW_PonQualityMonitor.Enable'],
+    'diagnostics.temperature': [
+        'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature',
+        'InternetGatewayDevice.X_ZHONE_COM_GPON.TemperatureString'],
+}
+
+# Canónicos cuya ruta varía por índice de instancia (p. ej. el bridge PPPoE de Zhone
+# vive en LANDevice.N distinto según modelo). Se resuelven por regex sobre las rutas.
+DYNAMIC_CATALOG = {
+    'wan.pppoe.username': re.compile(r'X_ZHONE_COM_PPPoEConfig\.Username$'),
+    'wan.pppoe.password': re.compile(r'X_ZHONE_COM_PPPoEConfig\.Password$'),
+    'wan.mode': re.compile(r'IPInterface\.\d+\.X_ZHONE_COM_ConnectionType$'),
+    'gpon.status': re.compile(r'X_ZHONE_COM_GPON\.GponOperStatus$'),
+    'diagnostics.temperature': re.compile(r'X_ZHONE_COM_GPON\.TemperatureString$'),
+}
+
+# Feature-detect por perfil (presencia de subárboles / parámetros).
+FEATURES = [
+    ('wifi.radio.2g', 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.'),
+    ('wifi.radio.5g', 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.'),
+    ('gpon.optical_string', 'InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevelString'),
+    ('gpon.optical_raw', 'InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevel'),
+    ('diag.cpu_util', 'InternetGatewayDevice.X_ZHONE_System.X_ZHONE_COM_Cpu0_Util'),
+    ('xpon_support', 'InternetGatewayDevice.X_BROADCOM_COM_XPON.'),
+    ('diag.transfer', 'InternetGatewayDevice.DownloadDiagnostics.'),
+    ('dot1x', 'InternetGatewayDevice.X_ZHONE_Dot1xPaeSystemObject.'),
+    ('voice_service', 'InternetGatewayDevice.Services.VoiceService.'),
+    ('manageable_device', 'InternetGatewayDevice.ManageableDevice.'),
+]
+
+PPPOE_RE = re.compile(
+    r'InternetGatewayDevice\.LANDevice\.(\d+)\.LANHostConfigManagement\.'
+    r'IPInterface\.\d+\.X_ZHONE_COM_PPPoEConfig\.Username'
+)
+PPPOE_STATUS_RE = re.compile(
+    r'InternetGatewayDevice\.LANDevice\.(\d+)\.LANHostConfigManagement\.'
+    r'IPInterface\.\d+\.X_ZHONE_COM_PPPoEStatus\.ConnectionStatus'
+)
+
+
+def pppoe_active_interfaces(recs) -> list[int]:
+    """Índice LANDevice del bridge PPPoE activo (ConnectionStatus=Connected).
+
+    Los equipos Zhone en planta corren todo en bridge y exponen la config PPPoE
+    en cada interfaz; el índice varía por modelo, así que se resuelve por estado.
+    """
+    connected = sorted(
+        int(m.group(1))
+        for p in recs
+        if (m := PPPOE_STATUS_RE.match(p)) and recs[p]['value'] == 'Connected'
+    )
+    if connected:
+        return connected
+    return sorted({int(m.group(1)) for p in recs if PPPOE_RE.match(p)})
+
+
+def has_prefix(keys, prefix) -> bool:
+    return any(k.startswith(prefix) for k in keys)
+
+
 def build_analysis(outdir: Path, entries) -> str:
     profiles = [e[0] for e in entries]
-    recs_by_profile = {p: {r['parameter']: r for r in load_recs(outdir, p)['params']} for p in profiles}
+    recs_by_profile = {
+        p: {r['parameter']: r for r in load_recs(outdir, p)['params']} for p in profiles
+    }
 
     lines = []
     lines.append('# Inventario de árboles TR-069\n')
@@ -192,68 +365,21 @@ def build_analysis(outdir: Path, entries) -> str:
     lines.append(f'Perfiles: {", ".join(profiles)}\n')
     lines.append('Valores sensibles enmascarados. Este directorio NO se commitea (está en .gitignore).\n')
 
-    # Catálogo canónico v1 -> rutas candidatas por perfil
-    # Formato: canónico -> [ (ruta, etiqueta) ... ]
-    CATALOG = {
-        'device.serial': ['InternetGatewayDevice.DeviceInfo.SerialNumber'],
-        'device.manufacturer': ['InternetGatewayDevice.DeviceInfo.Manufacturer'],
-        'device.model': ['InternetGatewayDevice.DeviceInfo.ModelName'],
-        'device.hardware_version': ['InternetGatewayDevice.DeviceInfo.HardwareVersion'],
-        'device.software_version': ['InternetGatewayDevice.DeviceInfo.SoftwareVersion'],
-        'device.uptime': ['InternetGatewayDevice.DeviceInfo.UpTime'],
-        'device.provisioning_code': ['InternetGatewayDevice.DeviceInfo.ProvisioningCode'],
-        'wifi.radio.2g.enabled': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable'],
-        'wifi.radio.2g.ssid': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID'],
-        'wifi.radio.2g.password': [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase'],
-        'wifi.radio.2g.channel': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Channel'],
-        'wifi.radio.2g.security': [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BeaconType',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BasicAuthenticationMode',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BasicEncryptionModes',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.IEEE11iAuthenticationMode',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.IEEE11iEncryptionModes'],
-        'wifi.radio.5g.enabled': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable'],
-        'wifi.radio.5g.ssid': ['InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID'],
-        'lan.ip': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress'],
-        'lan.netmask': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceSubnetMask'],
-        'lan.dhcp.enabled': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DHCPServerEnable'],
-        'lan.dhcp.pool_start': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MinAddress'],
-        'lan.dhcp.pool_end': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MaxAddress'],
-        'lan.dhcp.lease_time': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DHCPLeaseTime'],
-        'lan.dhcp.dns.primary': ['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DNSServers'],
-        'wan.mode': [
-            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionType',
-            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.ConnectionType',
-            'InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_ConnectionType'],
-        'wan.pppoe.username': ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username'],
-        'wan.pppoe.password': ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password'],
-        'wan.ip': ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.ExternalIPAddress'],
-        'wan.nat.enabled': ['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.NATEnabled'],
-        'gpon.rx_power': [
-            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
-            'InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevelString'],
-        'gpon.tx_power': [
-            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TXPower',
-            'InternetGatewayDevice.X_ZHONE_COM_GPON.TxLevelString'],
-        'gpon.status': [
-            'InternetGatewayDevice.X_ZHONE_COM_GPON.GponOperStatus',
-            'InternetGatewayDevice.X_HW_PonQualityMonitor.Enable'],
-        'diagnostics.temperature': [
-            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature',
-            'InternetGatewayDevice.X_ZHONE_COM_GPON.TemperatureString'],
-    }
-
     for profile in profiles:
         recs = recs_by_profile[profile]
         data = load_recs(outdir, profile)
-        lines.append(f'\n---\n\n## Perfil `{profile}`\n')
         ident = data['identity']
+        lines.append(f'\n---\n\n## Perfil `{profile}`\n')
         lines.append('| Campo | Valor |')
         lines.append('|---|---|')
-        for k in ('ID', 'Manufacturer', 'OUI', 'ProductClass', 'SerialNumber'):
-            lines.append(f'| {k} | {ident.get(k, ident.get(k.lower(), ""))} |')
+        ident_rows = [
+            ('ID', 'id'), ('Manufacturer', 'manufacturer'), ('OUI', 'oui'),
+            ('ProductClass', 'productclass'), ('SerialNumber', 'serialnumber'),
+            ('ModelName', 'model_name'), ('HardwareVersion', 'hardware_version'),
+            ('SoftwareVersion', 'software_version'),
+        ]
+        for label, key in ident_rows:
+            lines.append(f'| {label} | {ident.get(key, "")} |')
         st = data['stats']
         lines.append(f'\n- Parámetros: **{st["count"]}** (escr: {st["writable"]}, solo lectura: {st["readonly"]})')
         lines.append(f'- Árbol: **{data["tree"]}**')
@@ -262,6 +388,17 @@ def build_analysis(outdir: Path, entries) -> str:
         lines.append('|---|---|')
         for sec, cnt in list(st['top_sections'].items())[:12]:
             lines.append(f'| {sec} | {cnt} |')
+
+        lines.append('\n### Feature-detect\n')
+        pppoe = pppoe_active_interfaces(recs)
+        lines.append(
+            f'- Bridge PPPoE activo en `LANDevice.{",".join(map(str, pppoe)) or "—"}`\n'
+        )
+        lines.append('| Feature | Presencia |')
+        lines.append('|---|---|')
+        for name, prefix in FEATURES:
+            present = has_prefix(recs, prefix)
+            lines.append(f'| {name} | {"sí" if present else "—"} |')
 
         lines.append('\n### Cobertura del catálogo v1 (rutas candidatas)\n')
         lines.append('| Canónico | Ruta | W | Valor |')
@@ -275,28 +412,45 @@ def build_analysis(outdir: Path, entries) -> str:
                 found = True
                 lines.append(f'| `{canon}` | `{p}` | {"sí" if r["writable"] else "no"} | `{fmt_value(r)}` |')
             if not found:
+                dyn = DYNAMIC_CATALOG.get(canon)
+                for p in recs:
+                    if dyn and dyn.search(p):
+                        r = recs[p]
+                        found = True
+                        lines.append(
+                            f'| `{canon}` | `{p}` | {"sí" if r["writable"] else "no"} | `{fmt_value(r)}` |')
+            if not found:
                 lines.append(f'| `{canon}` | — (no encontrada) | | |')
 
-    # Comparación
+    # Comparación entre perfiles (N)
     lines.append('\n---\n\n## Comparación entre perfiles\n')
-    if len(profiles) == 2:
-        a, b = profiles
-        sa, sb = set(recs_by_profile[a]), set(recs_by_profile[b])
-        common = sorted(sa & sb)
-        only_a = sorted(sa - sb)
-        only_b = sorted(sb - sa)
-        lines.append(f'- Rutas en ambos: **{len(common)}**')
-        lines.append(f'- Solo en `{a}`: **{len(only_a)}**')
-        lines.append(f'- Solo en `{b}`: **{len(only_b)}**')
-        lines.append('\n### Rutas comunes relevantes (top 30)\n')
-        for p in common[:30]:
-            lines.append(f'- `{p}`')
-        lines.append('\n### Solo en el perfil Huawei (muestra, top 25)\n')
-        for p in only_b[:25]:
-            lines.append(f'- `{p}`')
-        lines.append('\n### Solo en el perfil Zhone (muestra, top 25)\n')
-        for p in only_a[:25]:
-            lines.append(f'- `{p}`')
+    sets = {p: set(recs_by_profile[p]) for p in profiles}
+    union = set().union(*sets.values())
+    common = set.intersection(*sets.values())
+    lines.append(f'- Rutas en TODOS los perfiles: **{len(common)}**')
+    lines.append(f'- Rutas en al menos uno (unión): **{len(union)}**\n')
+
+    lines.append('| Perfil | Params | Writable | % unión | Exclusivas |')
+    lines.append('|---|---|---|---|---|')
+    for p in profiles:
+        others = set().union(*(sets[q] for q in profiles if q != p))
+        excl = sets[p] - others
+        st = load_recs(outdir, p)['stats']
+        lines.append(f'| {p} | {st["count"]} | {st["writable"]} | '
+                     f'{100 * len(sets[p]) // len(union)}% | {len(excl)} |')
+
+    lines.append('\n### Rutas exclusivas por perfil (muestra, top 10)\n')
+    for p in profiles:
+        others = set().union(*(sets[q] for q in profiles if q != p))
+        excl = sorted(sets[p] - others)
+        lines.append(f'**{p}** — {len(excl)} exclusivas:\n')
+        for path in excl[:10]:
+            lines.append(f'- `{path}`')
+        lines.append('')
+
+    lines.append('### Rutas comunes a todos los perfiles (muestra, top 25)\n')
+    for p in sorted(common)[:25]:
+        lines.append(f'- `{p}`')
 
     return '\n'.join(lines) + '\n'
 
@@ -311,6 +465,7 @@ def main(argv=None):
     outdir.mkdir(parents=True, exist_ok=True)
 
     entries = []
+    used = set()
     for fn in args.inputs:
         path = Path(fn)
         if not path.exists():
@@ -320,13 +475,21 @@ def main(argv=None):
         if not rows:
             print(f'[error] sin filas válidas: {path}', file=sys.stderr)
             continue
-        profile, identity, tree, stats = write_inventory(path, rows, outdir)
-        print(f'[ok] {path.name}: {len(rows)} filas -> perfil {profile} ({tree})')
-        entries.append((profile, identity, tree, stats))
+        recs = build_records(rows)
+        profile, identity, tree = compute_profile(recs)
+        if profile in used:
+            profile = f'{profile}.{path.stem}'
+        used.add(profile)
+        stats = write_inventory(path, rows, profile, identity, tree, outdir)
+        print(f'[ok] {path.name}: {len(recs)} params -> perfil {profile} ({tree})')
+        entries.append((profile, identity, tree, stats, path.name))
 
     index = {
         'generated_by': 'tools/inventory/parse_tree.py',
-        'profiles': [{'profile': p, 'identity': i, 'tree': t, 'stats': s} for p, i, t, s in entries],
+        'profiles': [
+            {'profile': p, 'source': s, 'identity': i, 'tree': t, 'stats': st}
+            for p, i, t, st, s in entries
+        ],
     }
     with open(outdir / 'index.json', 'w', encoding='utf-8') as f:
         json.dump(index, f, ensure_ascii=False, indent=1)
