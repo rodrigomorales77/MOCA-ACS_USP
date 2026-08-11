@@ -8,7 +8,9 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
 - `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6, matriz de features, cobertura del catálogo v1
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
-- `plantillas/`: planillas de los modelos ZNID-GPON-2424A1-00, ZNID-GPON-2424, ZNID-GPON-2426A1-00 y ZNID-GPON-2426A-NA (locales, no commiteadas)
+
+### Security
+- `plantillas/` (árboles TR-069 exportados) quedó commiteada en el historial y contiene credenciales en claro (passwords PPPoE, `ConnectionRequestPassword`) y claves privadas RSA. Pendiente de remediación: revisar exposición, rotar credenciales y evaluar purga del historial (ver discusión con el equipo).
 
 ### Changed
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
