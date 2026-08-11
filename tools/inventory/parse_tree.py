@@ -223,7 +223,7 @@ def write_inventory(fn: Path, rows: list[list[str]], profile: str, identity: dic
     payload = {
         'profile': profile,
         'source': fn.name,
-        'device_id': identity.get('ID', ''),
+        'device_id': identity.get('id', ''),
         'identity': identity,
         'tree': tree,
         'stats': stats,
