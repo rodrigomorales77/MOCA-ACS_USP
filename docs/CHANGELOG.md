@@ -10,7 +10,8 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
 
 ### Security
-- `plantillas/` (árboles TR-069 exportados) quedó commiteada en el historial y contiene credenciales en claro (passwords PPPoE, `ConnectionRequestPassword`) y claves privadas RSA. Pendiente de remediación: revisar exposición, rotar credenciales y evaluar purga del historial (ver discusión con el equipo).
+- `plantillas/` (árboles TR-069 exportados) quedó commiteada en el historial y contiene credenciales en claro (passwords PPPoE, `ConnectionRequestPassword`) y claves privadas RSA. Remediation aplicada: dejó de trackearse (`git rm --cached`) y se añadió al `.gitignore`; los archivos permanecen solo en local.
+- **Pendiente (acción del equipo):** rotar las credenciales que quedaron expuestas en el historial remoto (passwords PPPoE de las ONT, `ConnectionRequestPassword` y claves RSA de los perfiles ZNID/Huawei). Las planillas no deben volver a subirse.
 
 ### Changed
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
