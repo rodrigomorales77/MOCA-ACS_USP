@@ -21,6 +21,19 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
 - `docs/INVENTARIO_ONT.md`: validación de Huawei HS8145X6 con export del 2026-08-11 — PPPoE activo (`ConnectionStatus=Connected`, `ExternalIPAddress`), óptico poblado (`RXPower/TXPower` en dBm entero, `Temperature` en °C) y VLAN vía `X_HW_VLAN` en la instancia activa
 
+### Operativo 2026-08-12 — genieacs-tr (CPU elevado por CWMP)
+- **Hallazgo:** 214 ONUs Huawei HS8145X6 (lotes de seriales terminados en `...94` y `...93`) tenían `InternetGatewayDevice.ManagementServer.PeriodicInformInterval = 15` (el resto del parque usa 300). Informaban cada ~15 s → ~55% del tráfico CWMP y tráfico duplicado desde mediados de julio (11,8 → 24,5 informs/s). Se verificó que no había presets/provisions activos, `pending_actions` ni `firmware_rules` que lo re-aplicaran (el parámetro fue escrito en los equipos, ts 2026-08-05).
+- **Remediación aplicada (operativa, vía API NBI de GenieACS):** `setParameterValues` `PeriodicInformInterval=300` a 211 ONUs (piloto de 3 + masivo). Limpieza de la cola de tareas de GenieACS (`tasks`): 7.855 tareas `refreshObject` obsoletas eliminadas (backup previo con `mongodump` en `/tmp` del servidor).
+- **Resultado:** informs 24,5 → 12/s (-51%), ACS requests ~22 → 8/s (-64%), CPU de `moca-genieacs` ~150% → ~100% promedio, `moca-mongodb` 10-15% → 5-8%, load average ~3,1 → ~0,8. Cola de tareas estable en 0. ONUs corregidas confirmadas en intervalo de 300 s.
+- **Pendientes:** 6 ONUs siguen con `PI=15` (4 offline, 2 con sesiones inestables que devuelven fault `cwmp.9002`); se re-envió la tarea y se corregirán cuando se reconecten. No se amplió la VM: no era necesaria.
+
+### Sugerencias de seguimiento (operativo 2026-08-12)
+1. **`backend/src/jobs/device-bootstrap.js`**: los `refreshObject` a dispositivos sin `_lastBootstrap` acumulan tareas en la cola cuando el dispositivo está offline (contribuía al backlog). Evaluar límite de reintentos o no encolar a dispositivos sin actividad reciente.
+2. **`docker-compose.yml`**: los contenedores no tienen límites de recursos (`memlimit=0`, `cpushares=0`). Definir límites de memoria/CPU por servicio.
+3. **Rotación de logs de `moca-genieacs`**: archivos de ~50 MB en la capa writable del contenedor (677 MB acumulados). Revisar `logrotate` o limpieza periódica.
+4. **Monitoreo del host**: no hay agente (zabbix/sar) en genieacs-tr; instalar para tendencia histórica de CPU/RAM/tráfico.
+5. **Sincronización de git**: el servidor (`/home/agustin/docker/moca_acs/MOCA-ACS_USP`) está 2 commits atrás del repo local; sincronizar tras este cambio.
+
 ---
 
 ## [1.5.5] - 2026-05-12
