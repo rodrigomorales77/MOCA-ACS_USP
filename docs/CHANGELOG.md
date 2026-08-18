@@ -6,7 +6,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 
 ### Added
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
-- `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6, matriz de features, cobertura del catálogo v1
+- `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6 + ZTE F890L (ZXIC), matriz de features, cobertura del catálogo v1 — **F2 completa**
 - `docs/PROPUESTAS_DECISIONES_ONT_GATEWAY.md`: borrador de propuestas para las decisiones abiertas del diseño (capacidades por modelo, PK `device_id`, `wan.mode` por instancias, timeout de tareas) — para validación del equipo
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
 
@@ -20,6 +20,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ### Changed
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
 - `docs/INVENTARIO_ONT.md`: validación de Huawei HS8145X6 con export del 2026-08-11 — PPPoE activo (`ConnectionStatus=Connected`, `ExternalIPAddress`), óptico poblado (`RXPower/TXPower` en dBm entero, `Temperature` en °C) y VLAN vía `X_HW_VLAN` en la instancia activa
+- `docs/INVENTARIO_ONT.md`: ZTE F890L (ZXIC) añadido al inventario — WiFi 6, 8 SSIDs, IPoE activo, sin GPON/diagnósticos vía TR-069, extensión vendor `X_CMCC_*`
 
 ### Operativo 2026-08-12 — genieacs-tr (CPU elevado por CWMP)
 - **Hallazgo:** 214 ONUs Huawei HS8145X6 (lotes de seriales terminados en `...94` y `...93`) tenían `InternetGatewayDevice.ManagementServer.PeriodicInformInterval = 15` (el resto del parque usa 300). Informaban cada ~15 s → ~55% del tráfico CWMP y tráfico duplicado desde mediados de julio (11,8 → 24,5 informs/s). Se verificó que no había presets/provisions activos, `pending_actions` ni `firmware_rules` que lo re-aplicaran (el parámetro fue escrito en los equipos, ts 2026-08-05).

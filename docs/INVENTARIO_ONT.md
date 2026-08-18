@@ -1,6 +1,6 @@
 # Inventario de árboles TR-069 por modelo (Fase 2)
 
-**Fecha:** 2026-08-08
+**Fecha:** 2026-08-18
 **Relacionado:** [DISENO_ABSTRACCION_ONT.md](./DISENO_ABSTRACCION_ONT.md) (§14, Fase 2)
 **Generación:** `tools/inventory/parse_tree.py` → volcados en `data/inventory/` (gitignoreado)
 
@@ -12,7 +12,7 @@ mapping y los transformers.
 
 ## 1. Fuentes de datos
 
-Directorio `plantillas/` (7 archivos, 2 formatos de exportación):
+Directorio `plantillas/` (9 archivos, 2 formatos de exportación):
 
 | Archivo | Formato | Modelo detectado | Export |
 |---|---|---|---|
@@ -23,6 +23,8 @@ Directorio `plantillas/` (7 archivos, 2 formatos de exportación):
 | `tr-tree-2426a1.csv` | Legacy (filas envueltas en comillas) | ZNID-GPON-2426A1-00 | Jul 8 |
 | `tr-tree-hs8145x6.csv` | Legacy (filas envueltas en comillas) | HS8145X6 | Jul 8 |
 | `device-model-HS8145X6.csv` | CSV estándar RFC 4180 | HS8145X6 | Aug 11 |
+| `device-model-F890L-ZXICC3AF3A12.csv` | CSV estándar RFC 4180 | F890L (ZXIC) | Jul 2 |
+| `device-model-F890L-ZXICCADE0F12.csv` | CSV estándar RFC 4180 | F890L (ZXIC) | Aug 18 |
 
 Ambos formatos comparten las mismas 12 columnas
 (`Parameter, Object, ..., Writable, ..., Value, Value type, ..., Notification, ...`).
@@ -54,6 +56,11 @@ El export `device-model-HS8145X6.csv` (Aug 11) es una **segunda unidad HS8145X6*
 `5A4E54533A01D993`, misma FW/HW) con **PPPoE activo y óptico poblado**, lo que cierra las
 brechas de validación de Huawei (§5).
 
+ZXIC/ZTE (F890L): 2 unidades exportadas (OUI `001146`), misma FW `V9.1.0P1T1` y HW `V9.0`.
+La unidad `ZXICC3AF3A12` (Jul 2) tiene solo 39 params — export de registro sin datos
+relevantes, subconjunto puro de la unidad completa. La unidad `ZXICCADE0F12` (Aug 18)
+tiene 475 params y es la referencia para el perfil `ZXIC_F890L_TR098`.
+
 ## 3. Regenerar el inventario
 
 ```bash
@@ -70,18 +77,19 @@ se nombra con sufijo del archivo fuente.
 
 ## 4. Matriz de features por modelo
 
-| Feature | 2424A1 | 2424 | 2426A1 | 2426A | HS8145X6 |
-|---|---|---|---|---|---|
-| WiFi 2.4G (`WLANConfiguration.1`) | — | — | sí (radio off) | sí (radio off) | sí |
-| WiFi 5G (`WLANConfiguration.5`) | — | — | — | — | sí |
-| GPON `*_String` (rx/tx/temp) | sí | **—** | sí | sí | — (otra ruta) |
-| GPON crudo (`RxLevel`/`TxLevel`) | sí | sí | sí | sí | `X_GponInterafceConfig.*` **validado** |
-| `diagnostics.temperature` | sí | **—** | sí | sí | — |
-| `X_BROADCOM_COM_XPON` (XPON/XGS-PON) | sí | — | sí | — | — |
-| Diagnósticos transferencia (DL/UL) | sí | **—** | sí | sí | sí |
-| Dot1x (`X_ZHONE_Dot1xPaeSystemObject`) | esqueleto | **completo (314)** | esqueleto | esqueleto | — |
-| QueueManagement (colas QoS) | 23 | 19 | **471** | **470** | 32 |
-| Bridge PPPoE activo (`LANDevice.N`) | 9 | 13 | 12 | 9 | — (WAN clásico) |
+| Feature | 2424A1 | 2424 | 2426A1 | 2426A | HS8145X6 | F890L (ZXIC) |
+|---|---|---|---|---|---|---|
+| WiFi 2.4G (`WLANConfiguration.1`) | — | — | sí (radio off) | sí (radio off) | sí | sí (SSID activo) |
+| WiFi 5G (`WLANConfiguration.5`) | — | — | — | — | sí | sí (config.2/5) |
+| GPON `*_String` (rx/tx/temp) | sí | **—** | sí | sí | — (otra ruta) | — |
+| GPON crudo (`RxLevel`/`TxLevel`) | sí | sí | sí | sí | `X_GponInterafceConfig.*` **validado** | **—** (ausente) |
+| `diagnostics.temperature` | sí | **—** | sí | sí | — | — |
+| `X_BROADCOM_COM_XPON` (XPON/XGS-PON) | sí | — | sí | — | — | — |
+| Diagnósticos transferencia (DL/UL) | sí | **—** | sí | sí | sí | — |
+| Dot1x (`X_ZHONE_Dot1xPaeSystemObject`) | esqueleto | **completo (314)** | esqueleto | esqueleto | — | — |
+| QueueManagement (colas QoS) | 23 | 19 | **471** | **470** | 32 | **—** |
+| Bridge PPPoE activo (`LANDevice.N`) | 9 | 13 | 12 | 9 | — (WAN clásico) | — |
+| `X_CMCC_*` (ext. China Mobile) | — | — | — | — | — | **93** |
 
 ## 5. Diferencias estructurales entre modelos
 
@@ -148,6 +156,24 @@ anticipaba. El transformer `dbm_milli_to_dbm` no aplica aquí; alcanza con parse
 `wan.vlan_id` vive en `X_HW_VLAN` de la instancia activa (PPPoE=145, IPoE=10), no en la ruta
 estándar del WAN.
 
+### 6.2 ZTE F890L (export `device-model-F890L-ZXICCADE0F12`, Aug 18)
+
+| Canónico | Estado F890L |
+|---|---|
+| `device.*` | ✅ completo |
+| `wan.mode` | `WANIPConnection.1` (IPoE, no bridge) |
+| `wan.ip` | `ExternalIPAddress = 10.1.223.209` (RO) |
+| `wan.pppoe.username` | `WANPPPConnection.1.Username` (RW, sin conexión activa) |
+| `wifi.radio.2g.*` / `wifi.radio.5g.*` | SSIDs presentes (8 instancias, 2.4G+5G), pero `Enable`/`RadioEnabled` sin valor en el export |
+| `gpon.*` | **completamente ausente** — ni una ruta PON/OMCI/GPON |
+| `diagnostics.*` | **ausente** |
+| `QueueManagement` | **ausente** |
+| `IPPingDiagnostics` | **ausente** |
+
+El F890L usa extensión vendor `X_CMCC_*` (China Mobile) con 93 params; no tiene
+ninguna ruta de diagnóstico ni GPON expuesta vía TR-069. La exportación pequeña
+(`ZXICC3AF3A12`, 39 params) es subconjunto puro de la grande — no aporta info nueva.
+
 ## 7. Hallazgos relevantes
 
 - **WAN = bridge total.** LAN IP `0.0.0.0`, DHCP off, NAT false, sin WANIPConnection
@@ -167,6 +193,11 @@ estándar del WAN.
   `ConnectionRequestPassword`, y una clave privada RSA en `CertificateCfg.1.PrivKey`).
   El parser las **enmascara** en los volcados (`[REDACTED]`); `plantillas/` no se
   commitea. No subir estos archivos a git.
+- **ZTE F890L es el más básico en TR-069:** sin GPON, sin diagnósticos, sin
+  QueueManagement, sin PingDiagnostics. WiFi con 8 SSIDs pero sin valores de
+  Enable/RadioEnabled. Solo 3 valores WAN. Las extensión vendor `X_CMCC_*` (China
+  Mobile) son las93 params escriturables más relevantes del modelo — posibles targets
+  para configuración remota. La ONT tiene IPoE activo (no bridge como ZNID).
 
 ## 8. Conclusión para F3/F4
 
@@ -178,6 +209,19 @@ perfiles. La alternativa "2 perfiles (con/sin WiFi)" no elimina las condiciones:
 2424 es el único sin WiFi, pero también le faltan `gpon.rx_power` (sin `*_String`)
 y `diagnostics.cpu_util`, que habría que condicionar igual dentro de su perfil.
 El feature-detect es necesario en cualquier esquema.
+
+Huawei HS8145X6 tiene su propio perfil (`HUAWEI_HS8145X6_TR098`): WAN clásico con
+PPPoE/IPoE, óptico vía `X_GponInterafceConfig`, WiFi 2.4G+5G. Escalas confirmadas
+(dBm entero, °C). Ya validado en §6.1.
+
+ZTE F890L requiere un tercer perfil (`ZXIC_F890L_TR098`): extensión vendor `X_CMCC_*`,
+sin GPON/diagnósticos, WiFi 6 con 8 SSIDs, IPoE activo. Es el más limitado en
+TR-069 pero potencialmente el más configurable vía `X_CMCC_*` (93 params RW).
+
+**Catálogo de perfiles resultante para F4:**
+- `ZHONE_TR098` (ZNID 2424A1/2424/2426A1/2426A) — feature-detect
+- `HUAWEI_HS8145X6_TR098` (HS8145X6) — validado
+- `ZXIC_F890L_TR098` (F890L) — WiFi 6, X_CMCC, sin GPON
 
 Esto no modifica `DISENO_ABSTRACCION_ONT.md` (pendiente de revisión del equipo);
 si la revisión cambia decisiones, se ajusta este inventario y el perfil en F4.
