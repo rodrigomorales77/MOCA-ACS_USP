@@ -1,0 +1,107 @@
+{
+  "$schema": "catalog.schema.json",
+  "version": "1.0.0",
+  "description": "Catálogo canónico v1 del ont-gateway — nombres de parámetros inmutables",
+  "sections": {
+    "device": {
+      "description": "Información general del equipo",
+      "params": {
+        "device.serial": { "type": "string", "mode": "ro", "description": "Serial reportado por el equipo" },
+        "device.manufacturer": { "type": "string", "mode": "ro" },
+        "device.model": { "type": "string", "mode": "ro" },
+        "device.hardware_version": { "type": "string", "mode": "ro" },
+        "device.software_version": { "type": "string", "mode": "ro" },
+        "device.uptime": { "type": "int", "unit": "seconds", "mode": "ro", "description": "Desde el encendido del equipo" },
+        "device.last_inform": { "type": "datetime", "unit": "UTC", "mode": "ro", "description": "Último Inform TR-069" },
+        "device.provisioning_code": { "type": "string", "mode": "rw" }
+      }
+    },
+    "wifi.radio.2g": {
+      "description": "WiFi banda 2.4 GHz",
+      "params": {
+        "wifi.radio.2g.enabled": { "type": "bool", "mode": "rw" },
+        "wifi.radio.2g.ssid": { "type": "string", "mode": "rw" },
+        "wifi.radio.2g.ssid_hidden": { "type": "bool", "mode": "rw", "description": "Broadcast SSID oculto" },
+        "wifi.radio.2g.password": { "type": "string", "mode": "wo", "description": "Write-only — no se puede leer de vuelta" },
+        "wifi.radio.2g.channel": { "type": "int", "mode": "rw", "description": "0 = auto" },
+        "wifi.radio.2g.bandwidth": { "type": "enum", "unit": "MHz", "mode": "rw", "enum": ["20", "40", "80", "160", "auto"] },
+        "wifi.radio.2g.security": { "type": "enum", "mode": "rw", "enum": ["none", "wpa2-psk", "wpa3-psk", "wpa2-wpa3-psk", "wpa-psk", "wep"] },
+        "wifi.radio.2g.max_clients": { "type": "int", "mode": "rw" },
+        "wifi.radio.2g.tx_power": { "type": "int", "unit": "dBm", "mode": "rw" }
+      }
+    },
+    "wifi.radio.5g": {
+      "description": "WiFi banda 5 GHz",
+      "params": {
+        "wifi.radio.5g.enabled": { "type": "bool", "mode": "rw" },
+        "wifi.radio.5g.ssid": { "type": "string", "mode": "rw" },
+        "wifi.radio.5g.ssid_hidden": { "type": "bool", "mode": "rw" },
+        "wifi.radio.5g.password": { "type": "string", "mode": "wo" },
+        "wifi.radio.5g.channel": { "type": "int", "mode": "rw" },
+        "wifi.radio.5g.bandwidth": { "type": "enum", "unit": "MHz", "mode": "rw", "enum": ["20", "40", "80", "160", "auto"] },
+        "wifi.radio.5g.security": { "type": "enum", "mode": "rw", "enum": ["none", "wpa2-psk", "wpa3-psk", "wpa2-wpa3-psk", "wpa-psk", "wep"] },
+        "wifi.radio.5g.max_clients": { "type": "int", "mode": "rw" },
+        "wifi.radio.5g.tx_power": { "type": "int", "unit": "dBm", "mode": "rw" }
+      }
+    },
+    "wan": {
+      "description": "WAN — PPPoE / IPoE / Bridge",
+      "params": {
+        "wan.mode": { "type": "enum", "mode": "rw", "enum": ["pppoe", "ipoe", "bridge"] },
+        "wan.pppoe.username": { "type": "string", "mode": "rw", "description": "Solo aplica en modo pppoe" },
+        "wan.pppoe.password": { "type": "string", "mode": "wo", "description": "Write-only" },
+        "wan.vlan_id": { "type": "int", "mode": "rw" },
+        "wan.nat.enabled": { "type": "bool", "mode": "rw" },
+        "wan.mtu": { "type": "int", "mode": "rw" },
+        "wan.ip": { "type": "string", "mode": "ro", "description": "IP WAN actual" },
+        "wan.gateway": { "type": "string", "mode": "ro" },
+        "wan.dns.primary": { "type": "string", "mode": "ro" },
+        "wan.dns.secondary": { "type": "string", "mode": "ro" },
+        "wan.status": { "type": "enum", "mode": "ro", "enum": ["connected", "disconnected", "unknown"] }
+      }
+    },
+    "lan": {
+      "description": "LAN — IP, DHCP, DNS",
+      "params": {
+        "lan.ip": { "type": "string", "mode": "rw", "description": "IP del gateway LAN" },
+        "lan.netmask": { "type": "string", "mode": "rw" },
+        "lan.dhcp.enabled": { "type": "bool", "mode": "rw" },
+        "lan.dhcp.pool_start": { "type": "string", "mode": "rw" },
+        "lan.dhcp.pool_end": { "type": "string", "mode": "rw" },
+        "lan.dhcp.lease_time": { "type": "int", "unit": "seconds", "mode": "rw" },
+        "lan.dhcp.dns.primary": { "type": "string", "mode": "rw" },
+        "lan.dhcp.dns.secondary": { "type": "string", "mode": "rw" }
+      }
+    },
+    "gpon": {
+      "description": "GPON / óptico — solo lectura",
+      "params": {
+        "gpon.status": { "type": "string", "mode": "ro", "description": "Estado de la ONU" },
+        "gpon.loid": { "type": "string", "mode": "rw", "description": "LOID / Loid / LoidLine (varía por fabricante)" },
+        "gpon.rx_power": { "type": "float", "unit": "dBm", "mode": "ro", "description": "Potencia óptica de recepción" },
+        "gpon.tx_power": { "type": "float", "unit": "dBm", "mode": "ro", "description": "Potencia óptica de transmisión" },
+        "gpon.distance": { "type": "float", "unit": "km", "mode": "ro", "description": "Distancia estimada" },
+        "gpon.ploam": { "type": "string", "mode": "ro", "description": "Información de autenticación PLOAM" }
+      }
+    },
+    "diagnostics": {
+      "description": "Diagnóstico del equipo",
+      "params": {
+        "diagnostics.temperature": { "type": "float", "unit": "C", "mode": "ro", "description": "Si el equipo la reporta" },
+        "diagnostics.cpu_usage": { "type": "float", "unit": "%", "mode": "ro" },
+        "diagnostics.memory_usage": { "type": "float", "unit": "%", "mode": "ro" },
+        "diagnostics.collected_at": { "type": "datetime", "unit": "UTC", "mode": "ro", "description": "Momento de la última medición" }
+      }
+    },
+    "actions": {
+      "description": "Acciones (POST)",
+      "actions": {
+        "actions.reboot": { "task": "reboot", "command_key": "gateway-reboot" },
+        "actions.factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+        "actions.ping": { "task": "diagPing", "body": "{ target }" },
+        "actions.traceroute": { "task": "diagTraceRoute", "body": "{ target }" },
+        "actions.refresh": { "task": "refreshObject", "object_name": "" }
+      }
+    }
+  }
+}

@@ -327,6 +327,7 @@ el modelo, `429` rate limit.
 | POST | `/onts/{serial}/diagnostics/ping` | body `{ target }` | `202` |
 | POST | `/onts/{serial}/diagnostics/traceroute` | body `{ target }` | `202` |
 | POST | `/onts/{serial}/refresh` | Re-lectura del árbol | `202` |
+| GET | `/onts/{serial}/capabilities` | Capacidades del perfil (qué secciones soporta) | `200` |
 | GET | `/tasks?serial=&status=&page=` | Lista de tareas | `200` |
 | GET | `/tasks/{taskId}` | Estado de una tarea | `200` |
 | GET | `/health` | Health check (BD + NBI) | `200` |
@@ -453,11 +454,77 @@ Traducir la acción canónica al task de GenieACS definido en `profile.actions`
 tarea. Los RPCs con resultado (ping/traceroute) se modelan como tareas que almacenan la
 salida del RPC en la columna `result` cuando esté disponible.
 
-### 9.4 Ausencia de parámetros
+### 9.4 Ausencia de parámetros y capacidades por perfil
 
-Si un parámetro del catálogo no existe en el árbol del equipo (ej. un modelo que no
-reporta potencia óptica), la lectura devuelve `null` para ese campo. El mapeo no debe
-fabricar valores.
+El inventario (Fase 2) demostró que hay tres situaciones distintas que el Sistema de
+Gestión debe distinguir:
+
+1. **`not_supported`** — el perfil del modelo no tiene mapeo para el campo canónico
+   (ej. `gpon.*` en ZTE F890L, `wifi.radio.5g.*` en ZNID). El campo no se muestra en el UI.
+2. **`no_value`** — el campo existe en el perfil pero el snapshot vino vacío (ej. óptico
+   Huawei en el export viejo). El campo se muestra como "Sin dato".
+3. **Valor presente** — el campo existe y tiene dato (ej. `gpon.rx_power = -17`).
+
+#### Declaración estática: `capabilities` en el perfil
+
+Cada perfil declara qué secciones canónicas soporta. Esto se calcula una vez al
+construir el perfil (a partir del inventario) y no cambia entre unidades del mismo modelo:
+
+```json
+{
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": true },
+    "wifi.radio.5g": { "supported": false, "reason": "model_no_5g_radio" },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": false, "reason": "model_no_gpon_tree" },
+    "diagnostics": { "supported": false, "reason": "model_no_diagnostics" }
+  }
+}
+```
+
+#### Resolución runtime
+
+El motor de mapping cruza `capabilities[sección]` con el snapshot de GenieACS:
+
+| Perfil dice | GenieACS devuelve | Resultado |
+|---|---|---|
+| `supported: false` | (no aplica) | `not_supported` — el UI oculta el campo |
+| `supported: true` | Ruta vacía o ausente en snapshot | `no_value` — el UI muestra "Sin dato" |
+| `supported: true` | Ruta con valor | `ok` — el UI muestra el valor |
+
+#### Respuesta de lectura
+
+```json
+{
+  "gpon": {
+    "rx_power": { "supported": false, "value": null, "reason": "model_not_capable" }
+  }
+}
+```
+
+```json
+{
+  "gpon": {
+    "rx_power": { "supported": true, "value": null, "reason": "empty_snapshot" }
+  }
+}
+```
+
+```json
+{
+  "gpon": {
+    "rx_power": { "supported": true, "value": -17, "reason": null }
+  }
+}
+```
+
+#### Endpoint de capacidades
+
+`GET /onts/{serial}/capabilities` devuelve las `capabilities` del perfil asignado a ese
+equipo. El UI lo consulta al cargar el formulario y sabe qué campos mostrar, deshabilitar
+u ocultar.
 
 ---
 

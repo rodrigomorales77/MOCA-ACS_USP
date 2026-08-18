@@ -1,0 +1,151 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ont-gateway-profile.schema.json",
+  "title": "Perfil de mapping ont-gateway",
+  "description": "Schema para los archivos profiles/<PROFILE>.json que mapean parámetros canónicos a rutas TR-069",
+  "type": "object",
+  "required": ["profile", "manufacturer", "model", "tree", "capabilities", "params"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "profile": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_]+_TR0(98|181)$",
+      "description": "Nombre del perfil: FABRICANTE_MODELO_TR098|TR181"
+    },
+    "manufacturer": {
+      "type": "string",
+      "description": "Fabricante (ZXIC, ZHONE, HUAWEI, etc.)"
+    },
+    "model": {
+      "type": "string",
+      "description": "Modelo o ModelName del equipo"
+    },
+    "tree": {
+      "type": "string",
+      "enum": ["tr098", "tr181"],
+      "description": "Árbol TR-069 que usa el equipo"
+    },
+    "firmware_min": {
+      "type": ["string", "null"],
+      "description": "Versión mínima de firmware (null = cualquier versión)"
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Secciones canónicas soportadas por este perfil",
+      "properties": {
+        "device": { "$ref": "#/definitions/capability" },
+        "wifi.radio.2g": { "$ref": "#/definitions/capability" },
+        "wifi.radio.5g": { "$ref": "#/definitions/capability" },
+        "wan": { "$ref": "#/definitions/capability" },
+        "lan": { "$ref": "#/definitions/capability" },
+        "gpon": { "$ref": "#/definitions/capability" },
+        "diagnostics": { "$ref": "#/definitions/capability" }
+      },
+      "additionalProperties": false
+    },
+    "params": {
+      "type": "object",
+      "description": "Mapping de parámetros canónicos a rutas TR-069",
+      "additionalProperties": { "$ref": "#/definitions/paramMapping" }
+    },
+    "actions": {
+      "type": "object",
+      "description": "Mapping de acciones canónicas a tasks de GenieACS",
+      "additionalProperties": { "$ref": "#/definitions/actionMapping" }
+    },
+    "groups": {
+      "type": "object",
+      "description": "Agrupación de parámetros por sección para endpoints parciales",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "capability": {
+      "type": "object",
+      "required": ["supported"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "reason": {
+          "type": "string",
+          "description": "Código del motivo cuando supported=false (ej. model_no_gpon_tree)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "paramMapping": {
+      "type": "object",
+      "required": ["path", "type", "mode"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Ruta TR-069 real (lectura y escritura)"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "boolean", "int", "float", "enum", "datetime"],
+          "description": "Tipo del valor canónico"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["ro", "rw", "wo"],
+          "description": "Permiso: solo lectura, lectura/escritura, write-only"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unidad canónica (dBm, seconds, %, etc.)"
+        },
+        "transform": {
+          "type": "string",
+          "description": "Nombre de función en transformers.js"
+        },
+        "enum": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Valores canónicos posibles (para validación en PATCH)"
+        },
+        "read_paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Rutas alternativas de lectura cuando la instancia varía"
+        },
+        "select": {
+          "type": "object",
+          "description": "Regla de selección de instancia (para WAN dinámico)",
+          "properties": {
+            "by_status": { "type": "string", "description": "Ruta a consultar para detectar instancia activa" },
+            "equals": { "type": "string", "description": "Valor que indica la instancia activa" }
+          },
+          "additionalProperties": false
+        },
+        "description": {
+          "type": "string",
+          "description": "Documentación del parámetro"
+        }
+      },
+      "additionalProperties": false
+    },
+    "actionMapping": {
+      "type": "object",
+      "required": ["task"],
+      "properties": {
+        "task": {
+          "type": "string",
+          "description": "Nombre del task de GenieACS (reboot, factoryReset, refreshObject, diagPing, diagTraceRoute)"
+        },
+        "command_key": {
+          "type": "string",
+          "description": "Command key para reboot/factoryReset"
+        },
+        "object_name": {
+          "type": "string",
+          "description": "Nombre del objeto para refreshObject"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

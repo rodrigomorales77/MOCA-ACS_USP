@@ -7,7 +7,12 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ### Added
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
 - `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6 + ZTE F890L (ZXIC), matriz de features, cobertura del catálogo v1 — **F2 completa**
-- `docs/PROPUESTAS_DECISIONES_ONT_GATEWAY.md`: borrador de propuestas para las decisiones abiertas del diseño (capacidades por modelo, PK `device_id`, `wan.mode` por instancias, timeout de tareas) — para validación del equipo
+- `docs/PROPUESTAS_DECISIONES_ONT_GATEWAY.md`: borrador de propuestas para las decisiones abiertas del diseño (capacidades por modelo, PK `device_id`, `wan.mode` por instancias, timeout de tareas) — **Decisión 1 validada**
+- `mapping/catalog.json`: catálogo canónico v1 (secciones: device, wifi, wan, lan, gpon, diagnostics, actions)
+- `mapping/profile.schema.json`: JSON Schema para perfiles de mapping
+- `mapping/profiles/ZHONE_TR098.json`: perfil unificado ZNID con feature-detect y select por instancia WAN
+- `mapping/profiles/HUAWEI_HS8145X6_TR098.json`: perfil Huawei con WAN clásico, óptico validado, WiFi 2.4G+5G
+- `mapping/profiles/ZXIC_F890L_TR098.json`: perfil ZTE con WiFi 6, IPoE, sin GPON
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
 
 ### Fixed

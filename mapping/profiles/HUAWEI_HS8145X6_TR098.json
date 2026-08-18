@@ -1,0 +1,196 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile": "HUAWEI_HS8145X6_TR098",
+  "manufacturer": "HUAWEI",
+  "model": "HS8145X6",
+  "tree": "tr098",
+  "firmware_min": "V5R021C00S050",
+  "description": "Huawei HS8145X6 — WiFi 2.4G+5G, WAN PPPoE/IPoE, óptico X_GponInterafceConfig. Validado con export Aug 11.",
+
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": true },
+    "wifi.radio.5g": { "supported": true },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": true },
+    "diagnostics": { "supported": false, "reason": "model_no_cpu_mem_diagnostics" }
+  },
+
+  "params": {
+    "device.serial": {
+      "path": "InternetGatewayDevice.DeviceInfo.SerialNumber",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.manufacturer": {
+      "path": "InternetGatewayDevice.DeviceInfo.Manufacturer",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.model": {
+      "path": "InternetGatewayDevice.DeviceInfo.ModelName",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.hardware_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.HardwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.software_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.uptime": {
+      "path": "InternetGatewayDevice.DeviceInfo.UpTime",
+      "type": "int",
+      "unit": "seconds",
+      "mode": "ro"
+    },
+    "device.provisioning_code": {
+      "path": "InternetGatewayDevice.DeviceInfo.ProvisioningCode",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "wifi.radio.2g.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wifi.radio.2g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey",
+      "type": "string",
+      "mode": "wo",
+      "transform": "wifi_passphrase"
+    },
+    "wifi.radio.2g.channel": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Channel",
+      "type": "int",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.security": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["none", "wpa2-psk", "wpa3-psk", "wpa2-wpa3-psk"]
+    },
+
+    "wifi.radio.5g.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Enable",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wifi.radio.5g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.SSID",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wifi.radio.5g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey",
+      "type": "string",
+      "mode": "wo",
+      "transform": "wifi_passphrase"
+    },
+    "wifi.radio.5g.channel": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.Channel",
+      "type": "int",
+      "mode": "rw"
+    },
+
+    "wan.mode": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionType",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["pppoe", "ipoe", "bridge"],
+      "transform": "wan_mode_huawei",
+      "description": "WANConnectionDevice.1 = PPPoE, .3 = IPoE. Modo determinado por ConnectionType"
+    },
+    "wan.pppoe.username": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wan.pppoe.password": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password",
+      "type": "string",
+      "mode": "wo"
+    },
+    "wan.vlan_id": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.X_HW_VLAN",
+      "type": "int",
+      "mode": "rw",
+      "description": "VLAN de la instancia activa (PPPoE=145, IPoE=10)"
+    },
+    "wan.nat.enabled": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.NATEnabled",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wan.ip": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress",
+      "type": "string",
+      "mode": "ro",
+      "description": "IP externa de la conexión activa"
+    },
+    "wan.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionStatus",
+      "type": "enum",
+      "mode": "ro",
+      "enum": ["connected", "disconnected", "unknown"],
+      "transform": "wan_status_huawei"
+    },
+
+    "gpon.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.Status",
+      "type": "string",
+      "mode": "ro"
+    },
+    "gpon.rx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia RX en dBm entero (puede ser negativo)"
+    },
+    "gpon.tx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia TX en dBm entero"
+    },
+    "diagnostics.temperature": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature",
+      "type": "float",
+      "unit": "C",
+      "mode": "ro"
+    }
+  },
+
+  "actions": {
+    "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
+    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+    "refresh": { "task": "refreshObject", "object_name": "" },
+    "ping": { "task": "diagPing" }
+  },
+
+  "groups": {
+    "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
+    "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
+    "wifi.radio.5g": ["wifi.radio.5g.enabled", "wifi.radio.5g.ssid", "wifi.radio.5g.password", "wifi.radio.5g.channel"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status"],
+    "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
+    "diagnostics": ["diagnostics.temperature"]
+  }
+}

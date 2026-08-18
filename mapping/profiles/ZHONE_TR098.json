@@ -1,0 +1,221 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile": "ZHONE_TR098",
+  "manufacturer": "ZHONE",
+  "model": "ZNID-GPON-24xx",
+  "tree": "tr098",
+  "firmware_min": null,
+  "description": "Perfil unificado para familia ZNID (2424A1, 2424, 2426A1, 2426A). Feature-detect por modelo.",
+
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": true, "reason": "feature_detect: present in 2426A1/2426A, absent in 2424A1/2424" },
+    "wifi.radio.5g": { "supported": false, "reason": "model_family_no_5g_radio" },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": true, "reason": "feature_detect: RxLevelString absent in 2424 (only raw RxLevel)" },
+    "diagnostics": { "supported": true, "reason": "feature_detect: Cpu0_Util absent in 2424" }
+  },
+
+  "params": {
+    "device.serial": {
+      "path": "InternetGatewayDevice.DeviceInfo.SerialNumber",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.manufacturer": {
+      "path": "InternetGatewayDevice.DeviceInfo.Manufacturer",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.model": {
+      "path": "InternetGatewayDevice.DeviceInfo.ModelName",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.hardware_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.HardwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.software_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.uptime": {
+      "path": "InternetGatewayDevice.DeviceInfo.UpTime",
+      "type": "int",
+      "unit": "seconds",
+      "mode": "ro"
+    },
+    "device.provisioning_code": {
+      "path": "InternetGatewayDevice.DeviceInfo.ProvisioningCode",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "wifi.radio.2g.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wifi.radio.2g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.ssid_hidden": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSIDBroadcast",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_1_0_string"
+    },
+    "wifi.radio.2g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey",
+      "type": "string",
+      "mode": "wo",
+      "transform": "wifi_passphrase"
+    },
+    "wifi.radio.2g.channel": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Channel",
+      "type": "int",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.security": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Standard",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["none", "wpa2-psk", "wpa-psk", "wep"],
+      "transform": "wifi_security_zhone"
+    },
+
+    "wan.mode": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_ConnectionType",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["pppoe", "ipoe", "bridge"],
+      "select": {
+        "by_status": "InternetGatewayDevice.LANDevice.*.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
+        "equals": "Connected"
+      },
+      "transform": "wan_mode_zhone",
+      "description": "Bridge por defecto; instancia activa detectada por ConnectionStatus"
+    },
+    "wan.pppoe.username": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.PPPoEUserName",
+      "type": "string",
+      "mode": "rw",
+      "select": {
+        "by_status": "InternetGatewayDevice.LANDevice.*.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
+        "equals": "Connected"
+      }
+    },
+    "wan.pppoe.password": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.PPPoEPassword",
+      "type": "string",
+      "mode": "wo"
+    },
+    "wan.vlan_id": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.VLANID",
+      "type": "int",
+      "mode": "rw",
+      "select": {
+        "by_status": "InternetGatewayDevice.LANDevice.*.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
+        "equals": "Connected"
+      }
+    },
+    "wan.nat.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_NATenabled",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string",
+      "select": {
+        "by_status": "InternetGatewayDevice.LANDevice.*.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
+        "equals": "Connected"
+      }
+    },
+    "wan.status": {
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
+      "type": "enum",
+      "mode": "ro",
+      "enum": ["connected", "disconnected", "unknown"],
+      "transform": "wan_status_zhone"
+    },
+
+    "lan.ip": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPAddress",
+      "type": "string",
+      "mode": "ro"
+    },
+    "lan.dhcp.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.DHCPv4.Server.Enable",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_1_0_string"
+    },
+
+    "gpon.status": {
+      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.GponOperStatus",
+      "type": "string",
+      "mode": "ro"
+    },
+    "gpon.loid": {
+      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.Loid",
+      "type": "string",
+      "mode": "rw"
+    },
+    "gpon.rx_power": {
+      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevelString",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "transform": "parse_dbm_string",
+      "description": "Ausente en 2424 (solo RxLevel crudo)"
+    },
+    "gpon.tx_power": {
+      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.TxLevelString",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "transform": "parse_dbm_string"
+    },
+
+    "diagnostics.temperature": {
+      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.TemperatureString",
+      "type": "float",
+      "unit": "C",
+      "mode": "ro",
+      "transform": "parse_temp_string"
+    },
+    "diagnostics.cpu_usage": {
+      "path": "InternetGatewayDevice.X_ZHONE_System.X_ZHONE_COM_Cpu0_Util",
+      "type": "float",
+      "unit": "%",
+      "mode": "ro"
+    },
+    "diagnostics.memory_usage": {
+      "path": "InternetGatewayDevice.X_ZHONE_System.X_ZHONE_COM_Memory_Average",
+      "type": "float",
+      "unit": "%",
+      "mode": "ro"
+    }
+  },
+
+  "actions": {
+    "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
+    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+    "refresh": { "task": "refreshObject", "object_name": "" },
+    "ping": { "task": "diagPing" }
+  },
+
+  "groups": {
+    "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
+    "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.ssid_hidden", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.status"],
+    "lan": ["lan.ip", "lan.dhcp.enabled"],
+    "gpon": ["gpon.status", "gpon.loid", "gpon.rx_power", "gpon.tx_power"],
+    "diagnostics": ["diagnostics.temperature", "diagnostics.cpu_usage", "diagnostics.memory_usage"]
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile": "ZXIC_F890L_TR098",
+  "manufacturer": "ZXIC",
+  "model": "F890L",
+  "tree": "tr098",
+  "firmware_min": "V9.1.0P1T1",
+  "description": "ZTE F890L (ZXIC) — WiFi 6, WAN IPoE, sin GPON/diagnósticos vía TR-069. Extensión vendor X_CMCC_*.",
+
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": true, "reason": "SSID present, Enable/RadioEnabled empty in export" },
+    "wifi.radio.5g": { "supported": true, "reason": "SSID present (config 2/5), Enable empty in export" },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": false, "reason": "model_no_gpon_tree" },
+    "diagnostics": { "supported": false, "reason": "model_no_diagnostics" }
+  },
+
+  "params": {
+    "device.serial": {
+      "path": "InternetGatewayDevice.DeviceInfo.SerialNumber",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.manufacturer": {
+      "path": "InternetGatewayDevice.DeviceInfo.Manufacturer",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.model": {
+      "path": "InternetGatewayDevice.DeviceInfo.ProductClass",
+      "type": "string",
+      "mode": "ro",
+      "description": "ZTE usa ProductClass en lugar de ModelName"
+    },
+    "device.hardware_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.HardwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.software_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+
+    "wifi.radio.2g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wifi.radio.5g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.2.SSID",
+      "type": "string",
+      "mode": "rw",
+      "description": "Config 2 y 5 son 5G (86a6he-5G). Config 2 es la primaria."
+    },
+
+    "wan.ip": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress",
+      "type": "string",
+      "mode": "ro"
+    },
+    "wan.pppoe.username": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username",
+      "type": "string",
+      "mode": "rw"
+    }
+  },
+
+  "actions": {},
+
+  "groups": {
+    "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version"],
+    "wifi.radio.2g": ["wifi.radio.2g.ssid"],
+    "wifi.radio.5g": ["wifi.radio.5g.ssid"],
+    "wan": ["wan.ip", "wan.pppoe.username"]
+  }
+}

@@ -1,6 +1,6 @@
 # Propuestas para las decisiones abiertas del ont-gateway
 
-**Estado:** Borrador para validación de Rodrigo (Fase 2, iteración 2026-08-11)
+**Estado:** Decisión 1 validada por el equipo (2026-08-18). Decisiones 2-4 pendientes.
 **Relacionado:** [DISENO_ABSTRACCION_ONT.md](./DISENO_ABSTRACCION_ONT.md) (§6, §7, §8, §9.4, §13), [INVENTARIO_ONT.md](./INVENTARIO_ONT.md)
 **Alcance:** solo propuestas; no modifican el diseño hasta validarse.
 
@@ -8,37 +8,29 @@
 
 ## 1. Representación de capacidades por modelo ("no soportado" vs. "sin valor" vs. "null")
 
+**Estado: ✅ VALIDADA (2026-08-18)**
+
 **Problema.** Hoy el diseño (§9.4) devuelve `null` si un campo no existe en el árbol, y el
 `analysis.md`/inventario muestran que en la flota real hay campos que **no existen por modelo**
 (ej. `wifi.radio.5g.*` en toda la familia ZNID) y otros que **existen pero vinieron vacíos**
 (ej. óptico Huawei). Confundir los tres casos hace que el Sistema de Gestión no sepa si
 "el equipo no tiene 5G" o "el equipo tiene 5G pero lo leímos mal".
 
-**Propuesta.**
+**Decisión validada.** Enfoque de dos capas:
 
-1. Tres estados en la respuesta de lectura, distintos de un valor normal:
-   - `"not_supported"` — el modelo/perfil no tiene mapeo para el campo (se omite o `null` hoy).
-   - `"no_value"` — el campo existe en el perfil pero el snapshot vino vacío (equipo sin la
-     feature activa, ruta no refrescada, o lectura pendiente de validar).
-   - `null` — el campo existe, se leyó, y el valor reportado es nulo/ausente de forma válida.
-2. Representación JSON estable:
-   ```json
-   { "wifi.radio.5g": { "supported": false, "reason": "model_no_radio" } }
-   { "gpon.rx_power": { "supported": true, "value": null, "status": "no_value" } }
-   ```
-   Alternativa más liviana: campo `supported` + campo `value`, con `supported:false` cuando no
-   hay mapeo y `value:null` con `status:"no_value"` cuando hay mapeo pero sin dato.
-3. **Nuevo endpoint** `GET /onts/{serial}/capabilities` que devuelve por sección canónica
-   (`device`, `wifi.radio.2g`, `wifi.radio.5g`, `wan`, `lan`, `gpon`, `diagnostics`) qué campos
-   soporta ese perfil y con qué `mode` (`ro`/`rw`/`wo`). El Sistema de Gestión adapta sus
-   formularios sin adivinar ni "probar y ver".
-4. Los `not_supported` se determinan **en tiempo de construcción del perfil** (a partir del
-   inventario) y se ajustan en runtime solo si el feature-detect lo amerita (p. ej. presencia
-   de `WLANConfiguration.1`). La distinción `no_value` se detecta en runtime (path existe en el
-   mapeo pero GenieACS devuelve cadena vacía).
+1. **Capa estática (`capabilities` en el perfil):** cada perfil declara qué secciones
+   canónicas soporta (`supported: true/false`). Esto se calcula una vez al construir el
+   perfil y no cambia entre unidades del mismo modelo.
+2. **Capa runtime (resolución en el motor de mapping):** cruza `capabilities` con el
+   snapshot de GenieACS:
+   - `supported: false` → `not_supported` (UI oculta el campo)
+   - `supported: true` + snapshot vacío → `no_value` (UI muestra "Sin dato")
+   - `supported: true` + valor presente → `ok` (UI muestra el valor)
+3. **Endpoint `GET /onts/{serial}/capabilities`:** devuelve las capabilities del perfil
+   asignado. El UI loconsulta al cargar el formulario.
 
-**Impacto en F3/F4:** `profile.schema.json` gana el bloque `capabilities` (declarativo) y el
-grupo `status`/`supported` en la respuesta de lectura; `transformers.js` no cambia.
+**Impacto en F3/F4:** `profile.schema.json` incluye `capabilities`; la respuesta de lectura
+incluye `supported`/`reason` por campo.
 
 ---
 
@@ -129,12 +121,12 @@ contrato de PATCH (sigue `202`).
 
 ## Resumen de impacto por fase
 
-| Decisión | Afecta | Bloquea |
-|---|---|---|
-| 1. Capacidades / `not_supported` | F3 (`catalog.json`, `profile.schema.json`), F4 (bloque `capabilities`) | F3/F4 |
-| 2. PK `device_id` | F5 (schema §10.1, resolver §5, routes) | F5 |
-| 3. `wan.mode` por instancias | F4 (metadata de params), engine | F4 (mapeo WAN) |
-| 4. Timeout/reintentos | F5 (schema `tasks`, task-runner) | F5 |
+| Decisión | Afecta | Bloquea | Estado |
+|---|---|---|---|
+| 1. Capacidades / `not_supported` | F3 (`catalog.json`, `profile.schema.json`), F4 (bloque `capabilities`) | F3/F4 | ✅ Validada |
+| 2. PK `device_id` | F5 (schema §10.1, resolver §5, routes) | F5 | Pendiente |
+| 3. `wan.mode` por instancias | F4 (metadata de params), engine | F4 (mapeo WAN) | Pendiente |
+| 4. Timeout/reintentos | F5 (schema `tasks`, task-runner) | F5 | Pendiente |
 
 Recomendación: validar al menos la **decisión 1** antes de fijar F3; las 2, 3 y 4 se pueden
 definir en paralelo sin bloquear la construcción del catálogo.
