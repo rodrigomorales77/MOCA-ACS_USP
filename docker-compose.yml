@@ -39,6 +39,7 @@ services:
     ports:
       - "10.0.2.14:7547:7547"
       - "190.92.103.227:3001:3001"
+      - "127.0.0.1:7557:7557"
     volumes:
       - ./data/genieacs:/opt/genieacs/ext
     networks:
