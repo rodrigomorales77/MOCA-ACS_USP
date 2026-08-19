@@ -13,6 +13,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `mapping/profiles/ZHONE_TR098.json`: perfil unificado ZNID con feature-detect y select por instancia WAN
 - `mapping/profiles/HUAWEI_HS8145X6_TR098.json`: perfil Huawei con WAN clásico, óptico validado, WiFi 2.4G+5G
 - `mapping/profiles/ZXIC_F890L_TR098.json`: perfil ZTE con WiFi 6, IPoE, sin GPON
+- `mapping/models.json`: registro maestro de modelos — fuente de verdad de cobertura entre modelos de producción, perfiles y estado (covered / covered_family / partial_identity / pending / edge_case); schema en `mapping/models.schema.json`
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
 
 ### Fixed
@@ -26,6 +27,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
 - `docs/INVENTARIO_ONT.md`: validación de Huawei HS8145X6 con export del 2026-08-11 — PPPoE activo (`ConnectionStatus=Connected`, `ExternalIPAddress`), óptico poblado (`RXPower/TXPower` en dBm entero, `Temperature` en °C) y VLAN vía `X_HW_VLAN` en la instancia activa
 - `docs/INVENTARIO_ONT.md`: ZTE F890L (ZXIC) añadido al inventario — WiFi 6, 8 SSIDs, IPoE activo, sin GPON/diagnósticos vía TR-069, extensión vendor `X_CMCC_*`
+- `docs/INVENTARIO_ONT.md`: verificación de cobertura contra NBI de producción (3.886 dispositivos, 2026-08-19) — registro maestro `mapping/models.json` con 21 modelos; 2 casos borde documentados sin perfil (`EG8041X6-10`, `BM443GAX4`); 4 Huawei pendientes (`AG1729`, `AG1720`, `HG8546M`, `HG8310M`) sin plantilla ni perfil; 2.162 ZNID con ProductClass parcial (`partial_identity`, refresh no trae ModelName por NAT)
 
 ### Operativo 2026-08-12 — genieacs-tr (CPU elevado por CWMP)
 - **Hallazgo:** 214 ONUs Huawei HS8145X6 (lotes de seriales terminados en `...94` y `...93`) tenían `InternetGatewayDevice.ManagementServer.PeriodicInformInterval = 15` (el resto del parque usa 300). Informaban cada ~15 s → ~55% del tráfico CWMP y tráfico duplicado desde mediados de julio (11,8 → 24,5 informs/s). Se verificó que no había presets/provisions activos, `pending_actions` ni `firmware_rules` que lo re-aplicaran (el parámetro fue escrito en los equipos, ts 2026-08-05).

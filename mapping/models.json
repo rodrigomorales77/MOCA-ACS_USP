@@ -1,0 +1,243 @@
+{
+  "$schema": "models.schema.json",
+  "version": "1.0.0",
+  "updated": "2026-08-19",
+  "fleet_snapshot": {
+    "source": "GenieACS NBI /devices (query {} limit 5000), http://localhost:7557",
+    "date": "2026-08-19",
+    "total_devices": 3886
+  },
+  "models": [
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2424A1-00",
+      "aliases": ["2424A1"],
+      "productclasses": ["ZNID24xxA1"],
+      "profile": "ZHONE_TR098",
+      "status": "covered",
+      "fleet_count": 1240,
+      "sources": ["device-model-ZNID2424A1.csv"],
+      "notes": "ModelName real discriminado por DeviceInfo (no por nombre de archivo)."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2424",
+      "aliases": ["2424"],
+      "productclasses": ["ZNID24xx"],
+      "profile": "ZHONE_TR098",
+      "status": "covered",
+      "fleet_count": 17,
+      "sources": ["device-model-ZNID2424.csv"],
+      "notes": "El menos equipado de la familia: sin WiFi, sin GPON *_String, sin CPU/mem."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A1-00",
+      "aliases": ["2426A1"],
+      "productclasses": ["ZNID24xxA1"],
+      "profile": "ZHONE_TR098",
+      "status": "covered",
+      "fleet_count": 51,
+      "sources": ["device-model-ZNID2426A1.csv", "tr-tree-2426a1.csv"],
+      "notes": "Dos exportaciones (Jul 8 y Aug 8): +109 params por cobertura del export, sin diferencia estructural."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A-NA",
+      "aliases": ["2426A"],
+      "productclasses": ["ZNID24xxA_GR"],
+      "profile": "ZHONE_TR098",
+      "status": "covered",
+      "fleet_count": 97,
+      "sources": ["device-model-ZNID2426A.csv"],
+      "notes": "Serial ZNTS... (no 5a4e...); ProductClass ZNID24xxA_GR."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2424A",
+      "aliases": ["2424A"],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 5,
+      "sources": [],
+      "notes": "Sin plantilla propia; cubierto por feature-detect del perfil unificado."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2424A1",
+      "aliases": [],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 5,
+      "sources": [],
+      "notes": "Variante sin sufijo -00 en ModelName; cubierta por feature-detect."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A1-00-NA",
+      "aliases": [],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 17,
+      "sources": [],
+      "notes": "Variante NA del 2426A1; cubierta por feature-detect."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A1-NA",
+      "aliases": [],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 15,
+      "sources": [],
+      "notes": "Variante NA del 2426A1; cubierta por feature-detect."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A-00",
+      "aliases": [],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 22,
+      "sources": [],
+      "notes": "Variante -00 del 2426A; cubierta por feature-detect."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID-GPON-2426A1",
+      "aliases": [],
+      "productclasses": [],
+      "profile": "ZHONE_TR098",
+      "status": "covered_family",
+      "fleet_count": 1,
+      "sources": [],
+      "notes": "ModelName sin sufijo; cubierto por feature-detect."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID24xxA1 (ProductClass parcial)",
+      "aliases": [],
+      "productclasses": ["ZNID24xxA1"],
+      "profile": "ZHONE_TR098",
+      "status": "partial_identity",
+      "fleet_count": 1889,
+      "sources": [],
+      "notes": "El ACS nunca pidió DeviceInfo.Manufacturer/ModelName completo; ProductClass identifica la familia ZNID24xxA1. ModelName exacto requiere refresh (ConnectionRequest falla por NAT en estos CPE)."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID24xxA_GR (ProductClass parcial)",
+      "aliases": [],
+      "productclasses": ["ZNID24xxA_GR"],
+      "profile": "ZHONE_TR098",
+      "status": "partial_identity",
+      "fleet_count": 243,
+      "sources": [],
+      "notes": "ProductClass parcial; misma familia Zhone. ModelName exacto no reportado."
+    },
+    {
+      "manufacturer": "ZHONE",
+      "model": "ZNID24xx (ProductClass genérico)",
+      "aliases": [],
+      "productclasses": ["ZNID24xx"],
+      "profile": "ZHONE_TR098",
+      "status": "partial_identity",
+      "fleet_count": 30,
+      "sources": [],
+      "notes": "ProductClass genérico; misma familia Zhone. ModelName exacto no reportado."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "HS8145X6",
+      "aliases": ["HS8145X6"],
+      "productclasses": ["HS8145X6"],
+      "profile": "HUAWEI_HS8145X6_TR098",
+      "status": "covered",
+      "fleet_count": 247,
+      "sources": ["tr-tree-hs8145x6.csv", "device-model-HS8145X6.csv"],
+      "notes": "Dos exportaciones (Jul 8 y Aug 11) sin diferencias estructurales; la nueva aporta PPPoE/óptico validados. Escalas: dBm entero, °C."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "AG1729",
+      "aliases": ["AG1729"],
+      "productclasses": [],
+      "profile": null,
+      "status": "pending",
+      "fleet_count": null,
+      "sources": [],
+      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "AG1720",
+      "aliases": ["AG1720"],
+      "productclasses": [],
+      "profile": null,
+      "status": "pending",
+      "fleet_count": null,
+      "sources": [],
+      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "HG8546M",
+      "aliases": ["HG8546M"],
+      "productclasses": [],
+      "profile": null,
+      "status": "pending",
+      "fleet_count": null,
+      "sources": [],
+      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "HG8310M",
+      "aliases": ["HG8310M"],
+      "productclasses": [],
+      "profile": null,
+      "status": "pending",
+      "fleet_count": null,
+      "sources": [],
+      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+    },
+    {
+      "manufacturer": "HUAWEI",
+      "model": "EG8041X6-10",
+      "aliases": [],
+      "productclasses": ["EG8041X6-10"],
+      "profile": null,
+      "status": "edge_case",
+      "fleet_count": 1,
+      "sources": [],
+      "notes": "1 unidad en flota; Huawei enterprise. Fuera de alcance F4; documentado como caso borde."
+    },
+    {
+      "manufacturer": "HWTC",
+      "model": "BM443GAX4",
+      "aliases": [],
+      "productclasses": ["BM443GAX4"],
+      "profile": null,
+      "status": "edge_case",
+      "fleet_count": 1,
+      "sources": [],
+      "notes": "1 unidad en flota; HWTC = Huawei (nombre corto del fabricante en el DeviceId). Fuera de alcance F4; documentado como caso borde."
+    },
+    {
+      "manufacturer": "ZXIC",
+      "model": "F890L",
+      "aliases": ["F890L"],
+      "productclasses": ["F890L"],
+      "profile": "ZXIC_F890L_TR098",
+      "status": "covered",
+      "fleet_count": 2,
+      "sources": ["device-model-F890L-ZXICC3AF3A12.csv", "device-model-F890L-ZXICCADE0F12.csv"],
+      "notes": "2 unidades en flota; el export grande (475 params) es la referencia. Sin GPON/diag vía TR-069; extensión vendor X_CMCC_*."
+    }
+  ]
+}

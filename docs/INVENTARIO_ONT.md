@@ -1,12 +1,17 @@
 # Inventario de árboles TR-069 por modelo (Fase 2)
 
-**Fecha:** 2026-08-18
+**Fecha:** 2026-08-19
 **Relacionado:** [DISENO_ABSTRACCION_ONT.md](./DISENO_ABSTRACCION_ONT.md) (§14, Fase 2)
 **Generación:** `tools/inventory/parse_tree.py` → volcados en `data/inventory/` (gitignoreado)
 
 Este documento resume el análisis de las planillas exportadas de GenieACS para
 soportar la Fase 3/4 del `ont-gateway`: definir el `catalog.json`, los perfiles de
 mapping y los transformers.
+
+> **Actualización 2026-08-19:** incorporado el **registro maestro de modelos**
+> (`mapping/models.json`), que es la fuente de verdad de cobertura entre modelos de
+> producción, perfiles y estado. La verificación contra el NBI de producción
+> (3.886 dispositivos) detectó 2 modelos de caso borde no cubiertos (§8).
 
 ---
 
@@ -199,7 +204,64 @@ ninguna ruta de diagnóstico ni GPON expuesta vía TR-069. La exportación peque
   Mobile) son las93 params escriturables más relevantes del modelo — posibles targets
   para configuración remota. La ONT tiene IPoE activo (no bridge como ZNID).
 
-## 8. Conclusión para F3/F4
+## 8. Registro maestro de modelos (`mapping/models.json`)
+
+**Añadido:** 2026-08-19. **Schema:** `mapping/models.schema.json`.
+
+El registro es la **fuente de verdad de cobertura**: relaciona cada modelo de
+producción con su perfil de mapping y su estado. Se consulta junto con el catálogo
+(parámetros) y los perfiles (rutas TR-069). Un modelo nuevo entra al registro con
+`status: pending`; al exportar su plantilla y crear perfil pasa a `covered`.
+
+### 8.1 Estados
+
+| Estado | Significado |
+|---|---|
+| `covered` | Tiene perfil dedicado (o cubierto por el inventario) |
+| `covered_family` | Cubierto por perfil unificado con feature-detect, sin plantilla propia |
+| `partial_identity` | ProductClass visible en NBI pero ModelName no reportado (requiere refresh) |
+| `pending` | En producción según el equipo; sin plantilla exportada ni perfil |
+| `edge_case` | Unidad única documentada; fuera de alcance F4 |
+| `inventory` | Tiene plantilla pero aún sin perfil |
+
+### 8.2 Cobertura verificada contra NBI (snapshot 2026-08-19, 3.886 dispositivos)
+
+| Fabricante | Modelo (NBI) | Unidades | Perfil | Estado |
+|---|---|---|---|---|
+| ZHONE | ZNID-GPON-2424A1-00 | 1.240 | `ZHONE_TR098` | `covered` |
+| ZHONE | ZNID-GPON-2424 | 17 | `ZHONE_TR098` | `covered` |
+| ZHONE | ZNID-GPON-2426A1-00 | 51 | `ZHONE_TR098` | `covered` |
+| ZHONE | ZNID-GPON-2426A-NA | 97 | `ZHONE_TR098` | `covered` |
+| ZHONE | ZNID-GPON-2424A / 2424A1 / 2426A1-00-NA / 2426A1-NA / 2426A-00 / 2426A1 | 5/5/17/15/22/1 | `ZHONE_TR098` | `covered_family` |
+| ZHONE | ZNID24xxA1 / ZNID24xxA_GR / ZNID24xx (ProductClass) | 1.889/243/30 | `ZHONE_TR098` | `partial_identity` |
+| HUAWEI | HS8145X6 | 247 | `HUAWEI_HS8145X6_TR098` | `covered` |
+| HUAWEI | AG1729 / AG1720 / HG8546M / HG8310M | no en NBI | — | `pending` |
+| HUAWEI | EG8041X6-10 | 1 | — | `edge_case` |
+| HWTC | BM443GAX4 | 1 | — | `edge_case` |
+| ZXIC | F890L | 2 | `ZXIC_F890L_TR098` | `covered` |
+
+### 8.3 Casos borde (documentados, sin perfil)
+
+Dos modelos detectados en producción con **1 unidad cada uno**, fuera del alcance
+de F4 y sin plantilla exportada:
+
+| Modelo | Fabricante (DeviceId) | Observación |
+|---|---|---|
+| `EG8041X6-10` | HUAWEI | ONT Huawei enterprise (serie EG), probablemente de prueba |
+| `BM443GAX4` | HWTC | `HWTC` es el nombre corto de Huawei en el DeviceId; modelo sin presencia en el inventario |
+
+No se crea perfil para ellos: son unidades únicas y el costo de un perfil dedicado
+no se justifica. Quedan registrados para trazabilidad si la flota crece.
+
+### 8.4 Modelos pendientes (brecha)
+
+Los 4 Huawei `AG1729`, `AG1720`, `HG8546M`, `HG8310M` figuran como producción
+según el equipo pero **no aparecen en el snapshot NBI** y no tienen plantilla
+exportada. Para cerrar la brecha: exportar la plantilla de cada modelo (o al menos
+un `tr-tree` de referencia) y evaluar si comparten el árbol de `HS8145X6` antes de
+decidir perfil propio.
+
+## 9. Conclusión para F3/F4
 
 Los 4 modelos ZNID comparten plataforma Zhone/Broadcom TR-098 y rutas de catálogo
 casi idénticas. **Se recomienda un solo perfil de mapping `ZHONE_TR098` con

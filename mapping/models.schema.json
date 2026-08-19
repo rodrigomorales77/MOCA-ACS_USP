@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "ont-gateway-models.schema.json",
+  "title": "Registro maestro de modelos ont-gateway",
+  "description": "Schema para mapping/models.json — fuente de verdad de cobertura: qué modelos existen en producción, qué perfil los cubre y en qué estado están",
+  "type": "object",
+  "required": ["version", "updated", "models"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Versión del registro (semver)"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date",
+      "description": "Fecha de última actualización (ISO 8601)"
+    },
+    "fleet_snapshot": {
+      "type": "object",
+      "description": "Origen y alcance de los conteos de flota",
+      "properties": {
+        "source": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "total_devices": { "type": "integer" }
+      },
+      "required": ["source", "date"],
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/modelEntry" }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "modelEntry": {
+      "type": "object",
+      "required": ["manufacturer", "model", "status"],
+      "properties": {
+        "manufacturer": {
+          "type": "string",
+          "description": "Fabricante (ZHONE, HUAWEI, ZXIC, HWTC...)"
+        },
+        "model": {
+          "type": "string",
+          "description": "ModelName real (DeviceInfo.ModelName) o ProductClass cuando el ModelName no está disponible"
+        },
+        "aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Nombres cortos usados por el equipo de operaciones (ej. 2424A1)"
+        },
+        "productclasses": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "ProductClass(es) del CWMP DeviceId que mapean a este modelo"
+        },
+        "profile": {
+          "type": ["string", "null"],
+          "description": "Perfil de mapping que lo cubre (null = sin perfil)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["covered", "covered_family", "partial_identity", "pending", "edge_case", "inventory"],
+          "description": "covered: perfil dedicado; covered_family: cubierto por perfil unificado con feature-detect; partial_identity: ProductClass visible pero ModelName no reportado (requiere refresh); pending: en producción según el equipo, sin plantilla ni perfil; edge_case: unidad única documentada sin perfil; inventory: tiene plantilla pero aún sin perfil"
+        },
+        "fleet_count": {
+          "type": ["integer", "null"],
+          "description": "Unidades vistas en el snapshot NBI (null = no aparece en el snapshot)"
+        },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Plantillas exportadas que documentan el modelo"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Contexto, variantes, brechas o decisiones"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
