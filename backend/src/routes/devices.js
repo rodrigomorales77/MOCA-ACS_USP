@@ -60,6 +60,14 @@ router.post(
 let statsCache = { data: null, ts: 0 };
 const STATS_CACHE_TTL = 60 * 1000;
 
+// Normaliza un parámetro TR-069 a string: puede venir como
+// {_value, _type}, como valor crudo o no venir.
+function paramValue(param) {
+  if (param == null) return '';
+  if (typeof param === 'object') return String(param._value ?? '');
+  return String(param);
+}
+
 router.get('/stats/summary', async (req, res, next) => {
   if (statsCache.data && Date.now() - statsCache.ts < STATS_CACHE_TTL) {
     return res.json(statsCache.data);
@@ -126,15 +134,20 @@ router.get('/stats/summary', async (req, res, next) => {
 
           const deviceInfo = device.InternetGatewayDevice?.DeviceInfo;
           if (deviceInfo) {
-            manufacturer = deviceInfo.Manufacturer?._value || deviceInfo.Manufacturer || 'Desconocido';
-            modelName = deviceInfo.ModelName?._value || deviceInfo.ModelName || 'Desconocido';
+            manufacturer = paramValue(deviceInfo.Manufacturer) || 'Desconocido';
+            modelName = paramValue(deviceInfo.ModelName) || 'Desconocido';
           }
 
-          if (manufacturer === 'Desconocido' && typeof device._deviceId === 'string') {
-            const parts = device._deviceId.split('-');
-            if (parts.length > 1) {
-              manufacturer = parts[0] || 'Desconocido';
-            }
+          // Fallback: algunos CPEs (p.ej. Zhone ZNID) no incluyen
+          // DeviceInfo.Manufacturer/ModelName en el Inform, pero el header
+          // DeviceId del SOAP (obligatorio en TR-069) siempre los trae.
+          // GenieACS lo persiste como objeto _deviceId.
+          const deviceIdMeta = device._deviceId || {};
+          if (manufacturer === 'Desconocido' && deviceIdMeta._Manufacturer) {
+            manufacturer = deviceIdMeta._Manufacturer;
+          }
+          if (modelName === 'Desconocido' && deviceIdMeta._ProductClass) {
+            modelName = deviceIdMeta._ProductClass;
           }
 
           manufacturers.add(manufacturer);

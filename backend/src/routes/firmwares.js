@@ -68,6 +68,14 @@ function initTable() {
 
 initTable();
 
+// Normaliza un parámetro TR-069 a string: puede venir como
+// {_value, _type}, como valor crudo o no venir.
+function paramValue(param) {
+  if (param == null) return '';
+  if (typeof param === 'object') return String(param._value ?? '');
+  return String(param);
+}
+
 // GET /api/firmwares - List all firmwares
 router.get('/', authenticate, (req, res) => {
   try {
@@ -94,6 +102,7 @@ router.get('/inventory/list', authenticate, async (req, res) => {
 
     // Get all devices from GenieACS with optimized projection
     const projection = JSON.stringify({
+      '_deviceId': 1,
       'InternetGatewayDevice.DeviceInfo.Manufacturer': 1,
       'InternetGatewayDevice.DeviceInfo.ModelName': 1,
       'InternetGatewayDevice.DeviceInfo.HardwareVersion': 1,
@@ -119,12 +128,16 @@ router.get('/inventory/list', authenticate, async (req, res) => {
     devices.forEach(device => {
       // Extract values - handle both object and value cases
       const deviceInfo = device?.InternetGatewayDevice?.DeviceInfo || {};
+      // Fallback: algunos CPEs (p.ej. Zhone ZNID) no reportan
+      // DeviceInfo.Manufacturer/ModelName; el header DeviceId del SOAP
+      // (persistido por GenieACS en _deviceId) siempre los trae.
+      const deviceIdMeta = device?._deviceId || {};
 
       // Values might be objects with _value property
-      const vendor = (deviceInfo.Manufacturer?._value || deviceInfo.Manufacturer || 'Desconocido').toString();
-      const model = (deviceInfo.ModelName?._value || deviceInfo.ModelName || 'Desconocido').toString();
-      const hwVersion = (deviceInfo.HardwareVersion?._value || deviceInfo.HardwareVersion || 'Desconocido').toString();
-      const swVersion = (deviceInfo.SoftwareVersion?._value || deviceInfo.SoftwareVersion || 'Desconocido').toString();
+      const vendor = paramValue(deviceInfo.Manufacturer) || deviceIdMeta._Manufacturer || 'Desconocido';
+      const model = paramValue(deviceInfo.ModelName) || deviceIdMeta._ProductClass || 'Desconocido';
+      const hwVersion = paramValue(deviceInfo.HardwareVersion) || 'Desconocido';
+      const swVersion = paramValue(deviceInfo.SoftwareVersion) || 'Desconocido';
 
       const key = `${vendor}|${model}|${hwVersion}|${swVersion}`;
 
