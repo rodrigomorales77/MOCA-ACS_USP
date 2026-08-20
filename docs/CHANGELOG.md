@@ -15,10 +15,10 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `mapping/profiles/ZXIC_F890L_TR098.json`: perfil ZTE con WiFi 6, IPoE, sin GPON
 - `mapping/models.json`: registro maestro de modelos — fuente de verdad de cobertura entre modelos de producción, perfiles y estado (covered / covered_family / partial_identity / pending / edge_case); schema en `mapping/models.schema.json`
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
-- `backend`: GET `/api/devices` acepta `resolve=wan_ip` — proyecta el subárbol `WANDevice`, resuelve la IP WAN de cada dispositivo y la devuelve como campo plano `_wanIp` manteniendo el payload liviano. Resolución en `backend/src/lib/wan-ip.js` (reutilizable a futuro para búsqueda por IP)
+- `backend`: GET `/api/devices` acepta `resolve=mgmt_ip` — resuelve la IP de gestión de cada dispositivo desde `ConnectionRequestURL` (hoja en path fijo, presente en cada Inform) y la devuelve como campo plano `_mgmtIp`. Extracción en `backend/src/lib/mgmt-ip.js`
 
 ### Fixed
-- `frontend`: la columna "IP WAN" de la lista de dispositivos quedaba vacía para los modelos que reportan la IP fuera del path exacto `WANIPConnection.1` (conexiones PPPoE o índice de instancia distinto de 1). Ahora se resuelve server-side (`resolve=wan_ip`) y la columna pasó a llamarse "IP MGMT"
+- `frontend`: la columna de IP de la lista de dispositivos quedaba vacía o mostraba la IP WAN en lugar de la de gestión, sin coherencia con el detalle. Ahora lista la misma "IP MGMT" que el detalle (fuente: `ConnectionRequestURL`) resuelta server-side (`resolve=mgmt_ip`)
 - `tools/inventory/parse_tree.py`: `device_id` poblado en los volcados `.params.json` (usaba la clave `ID` en mayúscula en lugar de `id`)
 
 ### Security

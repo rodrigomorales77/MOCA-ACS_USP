@@ -53,10 +53,10 @@ const DevicesPage = (() => {
       queryParam = `&query=${encodeURIComponent(JSON.stringify(q))}`;
     }
 
-    // resolve=wan_ip: el backend resuelve la IP WAN (su ruta varía por modelo)
-    // y la devuelve como campo plano `_wanIp`.
+    // resolve=mgmt_ip: el backend resuelve la IP de gestión desde
+    // ConnectionRequestURL (misma fuente que el detalle) como campo plano `_mgmtIp`.
     const devices = await API.get(
-      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}&resolve=wan_ip${queryParam}`
+      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}&resolve=mgmt_ip${queryParam}`
     );
 
     // Cargar acciones pendientes para marcar dispositivos
@@ -102,7 +102,7 @@ const DevicesPage = (() => {
         },
         {
           label: 'IP MGMT',
-          render: d => d._wanIp || '—'
+          render: d => d._mgmtIp || '—'
         },
         {
           label: 'Estado',
