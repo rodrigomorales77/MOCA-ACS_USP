@@ -53,11 +53,10 @@ const DevicesPage = (() => {
       queryParam = `&query=${encodeURIComponent(JSON.stringify(q))}`;
     }
 
-    const projection = encodeURIComponent(
-      'InternetGatewayDevice.DeviceInfo.ModelName,InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress,_lastInform'
-    );
+    // resolve=wan_ip: el backend resuelve la IP WAN (su ruta varía por modelo)
+    // y la devuelve como campo plano `_wanIp`.
     const devices = await API.get(
-      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}&projection=${projection}${queryParam}`
+      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}&resolve=wan_ip${queryParam}`
     );
 
     // Cargar acciones pendientes para marcar dispositivos
@@ -102,13 +101,8 @@ const DevicesPage = (() => {
           render: d => d?.InternetGatewayDevice?.DeviceInfo?.ModelName?._value || '—'
         },
         {
-          label: 'IP WAN',
-          render: d => {
-            const wan = d?.InternetGatewayDevice?.WANDevice?.['1']
-              ?.WANConnectionDevice?.['1']?.WANIPConnection?.['1']
-              ?.ExternalIPAddress?._value;
-            return wan || '—';
-          }
+          label: 'IP MGMT',
+          render: d => d._wanIp || '—'
         },
         {
           label: 'Estado',

@@ -2,22 +2,49 @@
 
 const express = require('express');
 const { nbi } = require('../config/genieacs');
+const { extractWanIp } = require('../lib/wan-ip');
 const { requireAdmin } = require('../middleware/authorize');
 const { logAction } = require('../middleware/audit');
 
 const router = express.Router();
 
-// GET /api/devices?limit=&skip=&query=&projection=
+// Proyección usada al resolver IP WAN: incluye el subárbol WANDevice completo
+// porque la ubicación exacta de ExternalIPAddress varía por modelo/firmware.
+const WAN_IP_PROJECTION =
+  'InternetGatewayDevice.DeviceInfo.ModelName,InternetGatewayDevice.WANDevice,_lastInform';
+
+// GET /api/devices?limit=&skip=&query=&projection=&resolve=wan_ip
+//
+// resolve=wan_ip: proyecta el subárbol WANDevice, resuelve la IP WAN de cada
+// dispositivo (cuya ruta varía: WANIPConnection/WANPPPConnection, índice no
+// fijo) y responde cada device con un campo plano `_wanIp` en vez del subárbol,
+// manteniendo el payload liviano para el cliente.
 router.get('/', async (req, res, next) => {
   try {
+    const resolveWanIp = req.query.resolve === 'wan_ip';
     const params = {};
     if (req.query.limit) params.limit = req.query.limit;
     if (req.query.skip) params.skip = req.query.skip;
     if (req.query.query) params.query = req.query.query;
-    if (req.query.projection) params.projection = req.query.projection;
+    if (resolveWanIp) {
+      params.projection = WAN_IP_PROJECTION;
+    } else if (req.query.projection) {
+      params.projection = req.query.projection;
+    }
 
     const { data } = await nbi.get('/devices/', { params });
-    res.json(data);
+
+    if (!resolveWanIp) return res.json(data);
+
+    res.json(
+      data.map(device => {
+        const wanIp = extractWanIp(device);
+        if (device.InternetGatewayDevice) {
+          delete device.InternetGatewayDevice.WANDevice;
+        }
+        return { ...device, _wanIp: wanIp };
+      })
+    );
   } catch (err) {
     next(err);
   }
