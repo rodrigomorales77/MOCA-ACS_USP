@@ -16,8 +16,12 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `mapping/models.json`: registro maestro de modelos — fuente de verdad de cobertura entre modelos de producción, perfiles y estado (covered / covered_family / partial_identity / pending / edge_case); schema en `mapping/models.schema.json`
 - `tools/inventory/parse_tree.py`: parser de planillas de GenieACS (formatos legacy y CSV estándar, masking de secretos, feature-detect, comparación entre perfiles)
 - `backend`: GET `/api/devices` acepta `resolve=mgmt_ip` — resuelve la IP de gestión de cada dispositivo desde `ConnectionRequestURL` (hoja en path fijo, presente en cada Inform) y la devuelve como campo plano `_mgmtIp`. Extracción en `backend/src/lib/mgmt-ip.js`
+- `backend`: GET `/api/devices` aplica filtro de estado (online/offline/pending) y búsqueda unificada server-side sobre un snapshot de flota cacheado 60s (`backend/src/lib/device-filters.js`, funciones puras): substring insensible a mayúsculas por ID, modelo e IP MGMT (sin `$regex`, evita inyección/ReDoS) y filtrado ANTES de paginar, así las páginas son coherentes con el filtro activo. Reemplaza el passthrough `query`/`projection`/`resolve=mgmt_ip` (único consumidor era la propia lista de dispositivos); `_mgmtIp` ahora se resuelve siempre
+- `backend`: el listado resuelve `_model` con fallback a `_deviceId._ProductClass` (mismo criterio que `stats/summary`) para los CPEs que no reportan `DeviceInfo.ModelName`
 
 ### Fixed
+- `frontend`: el filtro Offline/Pendientes se aplicaba en el navegador sobre páginas ya recortadas de 25 — con ~93% de la flota online, "Offline" mostraba tablas casi vacías; ahora el filtro y la búsqueda son server-side y la paginación cuadra
+- `frontend`: la columna Modelo mostraba "—" para los Zhone (no reportan `ModelName` en el Inform); ahora usa el `_model` resuelto por el backend
 - `frontend`: la columna de IP de la lista de dispositivos quedaba vacía o mostraba la IP WAN en lugar de la de gestión, sin coherencia con el detalle. Ahora lista la misma "IP MGMT" que el detalle (fuente: `ConnectionRequestURL`) resuelta server-side (`resolve=mgmt_ip`)
 - `tools/inventory/parse_tree.py`: `device_id` poblado en los volcados `.params.json` (usaba la clave `ID` en mayúscula en lugar de `id`)
 

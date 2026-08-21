@@ -47,16 +47,15 @@ const DevicesPage = (() => {
     const tableEl = document.getElementById('devices-table');
     tableEl.innerHTML = '<div class="loading">Cargando...</div>';
 
-    let queryParam = '';
-    if (currentSearch) {
-      const q = { _id: { $regex: currentSearch, $options: 'i' } };
-      queryParam = `&query=${encodeURIComponent(JSON.stringify(q))}`;
-    }
+    // Filtro de estado y búsqueda se aplican server-side sobre el snapshot de
+    // flota: la paginación es coherente porque el backend filtra ANTES del slice
+    // (el filtro client-side sobre páginas ya recortadas mostraba tablas vacías).
+    let queryParams = '';
+    if (currentSearch) queryParams += `&search=${encodeURIComponent(currentSearch)}`;
+    if (currentStatusFilter) queryParams += `&status=${encodeURIComponent(currentStatusFilter)}`;
 
-    // resolve=mgmt_ip: el backend resuelve la IP de gestión desde
-    // ConnectionRequestURL (misma fuente que el detalle) como campo plano `_mgmtIp`.
     const devices = await API.get(
-      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}&resolve=mgmt_ip${queryParam}`
+      `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}${queryParams}`
     );
 
     // Cargar acciones pendientes para marcar dispositivos
@@ -77,28 +76,15 @@ const DevicesPage = (() => {
 
     const fiveMinAgo = Date.now() - 5 * 60 * 1000;
 
-    // Filtrar por estado si está seleccionado
-    let filteredDevices = devices;
-    if (currentStatusFilter) {
-      filteredDevices = devices.filter(d => {
-        const raw = d._lastInform;
-        const isOnline = raw && new Date(raw.$date || raw).getTime() > fiveMinAgo;
-        const hasPending = pendingActionsByDevice[d._id] > 0;
-
-        if (currentStatusFilter === 'online') return isOnline;
-        if (currentStatusFilter === 'offline') return !isOnline;
-        if (currentStatusFilter === 'pending') return hasPending;
-        return true;
-      });
-    }
-
     Table.render({
       container: tableEl,
       columns: [
         { key: '_id', label: 'Device ID' },
         {
           label: 'Modelo',
-          render: d => d?.InternetGatewayDevice?.DeviceInfo?.ModelName?._value || '—'
+          // El backend garantiza el fallback a _ProductClass (Zhone no reporta
+          // ModelName en el Inform), así que basta con el campo plano.
+          render: d => d._model || '—'
         },
         {
           label: 'IP MGMT',
@@ -120,7 +106,7 @@ const DevicesPage = (() => {
             : '—'
         }
       ],
-      rows: filteredDevices,
+      rows: devices,
       onRowClick: (id) => Router.navigate(`/devices/${encodeURIComponent(id)}`),
       emptyMessage: 'No se encontraron dispositivos',
       rowStyle: (d) => {
