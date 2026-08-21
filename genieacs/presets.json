@@ -1,0 +1,46 @@
+[
+  {
+    "_id": "inform",
+    "weight": 0,
+    "channel": "inform",
+    "precondition": "",
+    "events": {},
+    "configurations": [
+      {
+        "type": "provision",
+        "name": "inform",
+        "args": null
+      }
+    ]
+  },
+  {
+    "_id": "default",
+    "weight": 0,
+    "channel": "default",
+    "precondition": "",
+    "events": {},
+    "configurations": [
+      {
+        "type": "provision",
+        "name": "default",
+        "args": null
+      }
+    ]
+  },
+  {
+    "_id": "bootstrap",
+    "weight": 0,
+    "channel": "bootstrap",
+    "precondition": "",
+    "events": {
+      "0 BOOTSTRAP": true
+    },
+    "configurations": [
+      {
+        "type": "provision",
+        "name": "bootstrap",
+        "args": null
+      }
+    ]
+  }
+]

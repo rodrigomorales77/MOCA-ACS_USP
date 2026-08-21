@@ -38,6 +38,13 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `docs/INVENTARIO_ONT.md`: ZTE F890L (ZXIC) añadido al inventario — WiFi 6, 8 SSIDs, IPoE activo, sin GPON/diagnósticos vía TR-069, extensión vendor `X_CMCC_*`
 - `docs/INVENTARIO_ONT.md`: verificación de cobertura contra NBI de producción (3.886 dispositivos, 2026-08-19) — registro maestro `mapping/models.json` con 21 modelos; 2 casos borde documentados sin perfil (`EG8041X6-10`, `BM443GAX4`); 4 Huawei pendientes (`AG1729`, `AG1720`, `HG8546M`, `HG8310M`) sin plantilla ni perfil; 2.162 ZNID con ProductClass parcial (`partial_identity`, refresh no trae ModelName por NAT)
 
+### Versionado de provisions (2026-08-21)
+- **Provisions de GenieACS versionadas por primera vez** en `genieacs/provisions/` + `genieacs/presets.json`. Históricamente vivían solo en MongoDB de producción sin backup en el repo. Exportadas vía `mongo --eval` (read-only) y commiteadas.
+- **`default.js`** — refresh periódico: incluye el fix del 2026-07-24 (`Date.now() - (Date.now() % 3600000)`) que resolvió el CPU storm por GetParameterNames completo en cada sesión.
+- **`inform.js`** — configuración de periodic inform: fix del bug `Date.now(86400000)` (Date.now() ignora argumentos) → redondeo al día. El bug causaba re-aplicación innecesaria en cada sesión. **Nota:** `informTime = daily % 86400000 = 0` cuando daily está redondeado; la diferenciación por dispositivo depende de la semilla de Math.random() en GenieACS. Pendiente revisar si se necesita diferenciación explícita.
+- **`bootstrap.js`** — limpieza de caché al primer informe: sin cambios.
+- **Backups**: export completo de MongoDB (`provisions_export.json`, `presets_export.json`) y backup del provision `default` anterior al fix (`/tmp/provision-default-backup.txt` en el servidor, 21/jul).
+
 ### Operativo 2026-08-12 — genieacs-tr (CPU elevado por CWMP)
 - **Hallazgo:** 214 ONUs Huawei HS8145X6 (lotes de seriales terminados en `...94` y `...93`) tenían `InternetGatewayDevice.ManagementServer.PeriodicInformInterval = 15` (el resto del parque usa 300). Informaban cada ~15 s → ~55% del tráfico CWMP y tráfico duplicado desde mediados de julio (11,8 → 24,5 informs/s). Se verificó que no había presets/provisions activos, `pending_actions` ni `firmware_rules` que lo re-aplicaran (el parámetro fue escrito en los equipos, ts 2026-08-05).
 - **Remediación aplicada (operativa, vía API NBI de GenieACS):** `setParameterValues` `PeriodicInformInterval=300` a 211 ONUs (piloto de 3 + masivo). Limpieza de la cola de tareas de GenieACS (`tasks`): 7.855 tareas `refreshObject` obsoletas eliminadas (backup previo con `mongodump` en `/tmp` del servidor).
