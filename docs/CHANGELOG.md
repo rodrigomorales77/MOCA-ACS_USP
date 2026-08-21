@@ -20,6 +20,8 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `backend`: el listado resuelve `_model` con fallback a `_deviceId._ProductClass` (mismo criterio que `stats/summary`) para los CPEs que no reportan `DeviceInfo.ModelName`
 
 ### Fixed
+- `frontend`: el contador y el paginador de la lista de dispositivos mostraban solo las filas de la página (máx 25), nunca el total del conjunto filtrado — con el filtro Offline parecía que había 5 dispositivos cuando hay cientos. La API ahora responde `{total, skip, limit, devices}` y la UI muestra "1–25 de N" recorriendo el total
+- `nginx`: sin cabeceras de cache ni versionado de scripts, el navegador servía JS viejo desde su cache tras cada despliegue (la búsqueda y los filtros "no funcionaban" porque corría el código anterior). Ahora `Cache-Control: no-cache` en HTML y assets: revalidación barata con ETag/304, los deploys llegan solos al browser
 - `frontend`: el filtro Offline/Pendientes se aplicaba en el navegador sobre páginas ya recortadas de 25 — con ~93% de la flota online, "Offline" mostraba tablas casi vacías; ahora el filtro y la búsqueda son server-side y la paginación cuadra
 - `frontend`: la columna Modelo mostraba "—" para los Zhone (no reportan `ModelName` en el Inform); ahora usa el `_model` resuelto por el backend
 - `frontend`: la columna de IP de la lista de dispositivos quedaba vacía o mostraba la IP WAN en lugar de la de gestión, sin coherencia con el detalle. Ahora lista la misma "IP MGMT" que el detalle (fuente: `ConnectionRequestURL`) resuelta server-side (`resolve=mgmt_ip`)
@@ -30,6 +32,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - **Pendiente (acción del equipo):** rotar las credenciales que quedaron expuestas en el historial remoto (passwords PPPoE de las ONT, `ConnectionRequestPassword` y claves RSA de los perfiles ZNID/Huawei). Las planillas no deben volver a subirse.
 
 ### Changed
+- `frontend`: el buscador de dispositivos aplica debounce de 300ms (una request por tecla satura al backend) y descarta respuestas desactualizadas si llega una búsqueda más nueva mientras se espera la anterior
 - `backend/src/jobs/device-bootstrap.js`: sincronizado con producción — detecta TR-098/TR-181, respeta `_lastBootstrap` y refresca el subárbol `DeviceInfo` en lugar de todo el árbol
 - `docs/INVENTARIO_ONT.md`: validación de Huawei HS8145X6 con export del 2026-08-11 — PPPoE activo (`ConnectionStatus=Connected`, `ExternalIPAddress`), óptico poblado (`RXPower/TXPower` en dBm entero, `Temperature` en °C) y VLAN vía `X_HW_VLAN` en la instancia activa
 - `docs/INVENTARIO_ONT.md`: ZTE F890L (ZXIC) añadido al inventario — WiFi 6, 8 SSIDs, IPoE activo, sin GPON/diagnósticos vía TR-069, extensión vendor `X_CMCC_*`

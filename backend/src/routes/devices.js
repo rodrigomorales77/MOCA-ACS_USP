@@ -114,6 +114,10 @@ function loadPendingIds() {
 // mayúsculas sobre ID/modelo/IP MGMT), status (online/offline/pending) y luego
 // slice skip..skip+limit. El filtrado ocurre SIEMPRE antes de paginar, así que
 // las páginas son coherentes con el filtro activo.
+//
+// Responde { total, skip, limit, devices }: total es el tamaño del conjunto
+// FILTRADO completo, no el de la página — la UI lo usa para el contador y el
+// paginador ("1–25 de N").
 router.get('/', async (req, res, next) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
@@ -131,7 +135,12 @@ router.get('/', async (req, res, next) => {
 
     const filtered = filterDevices(snapshot, { search, status, pendingIds, now: Date.now() });
 
-    res.json(filtered.slice(skip, skip + limit));
+    res.json({
+      total: filtered.length,
+      skip,
+      limit,
+      devices: filtered.slice(skip, skip + limit)
+    });
   } catch (err) {
     next(err);
   }

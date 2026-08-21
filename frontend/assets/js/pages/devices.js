@@ -6,6 +6,8 @@ const DevicesPage = (() => {
   let currentSearch = '';
   let currentStatusFilter = ''; // '' = todos, 'online', 'offline', 'pending'
   let pendingActionsByDevice = {}; // deviceId -> count
+  let searchTimer = null; // debounce del buscador
+  let requestSeq = 0; // descarta respuestas desactualizadas si tipean rápido
 
   async function render() {
     Header.render('Dispositivos');
@@ -30,8 +32,13 @@ const DevicesPage = (() => {
 
     document.getElementById('device-search').addEventListener('input', e => {
       currentSearch = e.target.value;
-      currentSkip = 0;
-      loadDevices();
+      // Debounce: una request por tecla satura al backend y puede resolver
+      // fuera de orden mientras se tipea.
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        currentSkip = 0;
+        loadDevices();
+      }, 300);
     });
 
     document.getElementById('status-filter').addEventListener('change', e => {
@@ -54,13 +61,22 @@ const DevicesPage = (() => {
     if (currentSearch) queryParams += `&search=${encodeURIComponent(currentSearch)}`;
     if (currentStatusFilter) queryParams += `&status=${encodeURIComponent(currentStatusFilter)}`;
 
-    const devices = await API.get(
+    const seq = ++requestSeq;
+
+    // El backend responde { total, devices }: total es el tamaño del conjunto
+    // FILTRADO completo y devices la página actual — así el contador y el
+    // paginador reflejan el total aunque se muestren de a 25.
+    const data = await API.get(
       `/devices?limit=${PAGE_SIZE}&skip=${currentSkip}${queryParams}`
     );
+    if (seq !== requestSeq) return; // llegó una búsqueda más nueva: esta respuesta ya no aplica
+
+    const { total, devices } = data;
 
     // Cargar acciones pendientes para marcar dispositivos
     try {
       const response = await API.get('/pending-actions?limit=1000&status=pending');
+      if (seq !== requestSeq) return;
       const allActions = response.actions || response || [];
       pendingActionsByDevice = {};
       allActions.forEach(action => {
@@ -119,15 +135,15 @@ const DevicesPage = (() => {
     });
 
     const countEl = document.getElementById('device-count');
-    if (countEl) countEl.textContent = `${devices.length} resultado(s)`;
+    if (countEl) countEl.textContent = `${total} resultado(s)`;
 
     const pagEl = document.getElementById('devices-pagination');
     if (pagEl) {
       pagEl.innerHTML = `
-        <span>${currentSkip + 1}–${currentSkip + devices.length}</span>
+        <span>${total === 0 ? 'Sin resultados' : `${currentSkip + 1}–${Math.min(currentSkip + PAGE_SIZE, total)} de ${total}`}</span>
         <div class="pagination-buttons">
           <button class="btn btn-ghost btn-sm" id="pag-prev" ${currentSkip === 0 ? 'disabled' : ''}>← Anterior</button>
-          <button class="btn btn-ghost btn-sm" id="pag-next" ${devices.length < PAGE_SIZE ? 'disabled' : ''}>Siguiente →</button>
+          <button class="btn btn-ghost btn-sm" id="pag-next" ${currentSkip + PAGE_SIZE >= total ? 'disabled' : ''}>Siguiente →</button>
         </div>`;
 
       document.getElementById('pag-prev').onclick = () => { currentSkip = Math.max(0, currentSkip - PAGE_SIZE); loadDevices(); };
