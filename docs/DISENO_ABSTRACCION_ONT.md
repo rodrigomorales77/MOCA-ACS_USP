@@ -168,13 +168,28 @@ El gateway mantiene una **tabla índice local** (`devices`) refrescada por un jo
    Device.DeviceInfo.{Manufacturer,ModelName,SoftwareVersion}, _lastInform`
 - Extrae `serial` (último segmento de `_deviceId`) y el **perfil** (fabricante + modelo +
   árbol detectado: TR-098 si tiene `InternetGatewayDevice`, TR-181 si tiene `Device`).
-- Almacena: `serial, device_id, manufacturer, model, profile, software_version, last_inform`.
+- Almacena: `device_id, serial, manufacturer, model, profile, software_version, last_inform`.
+  Normaliza `serial` a mayúsculas sin espacios; upsert por `device_id` (un reemplazo —
+  mismo serial legible, distinto `OUI-ProductClass-Serial` — queda como fila nueva y
+  conserva `last_inform` para ordenar candidatos).
 
-Resolución en cada request:
+Resolución en cada request (`serial` es el segmento final de `_deviceId`; OLT ZHONE
+muestra solo los últimos 8 hex y el técnico suele copiar esos 8 — ver nota interna en `Fix 2`):
 
-- `serial` → fila única en `devices` → `device_id` + `profile`.
-- Serial inexistente → `404`.
-- Serial con más de un device asociado → `409` con la lista de candidatos (no adivinar).
+- `serial` exacto (16 hex) → `WHERE serial = ? COLLATE NOCASE` → 1 fila → `device_id` + `profile`.
+- Sufijo de 8 hex → `WHERE serial LIKE '%' || ? COLLATE NOCASE` → 0/1/N filas.
+- 0 filas → `404` con hint del `serial` recibido y si fue búsqueda por sufijo.
+- N filas (mismo serial legible en varios `device_id`, o colisión de sufijo) → `409`
+  con candidatos `[{ device_id, model, last_inform }]` ordenados por `last_inform` desc
+  (no adivinar). Futuro: `GET /onts/by-device/{device_id}` para operar sin ambigüedad.
+- Cualquier otro largo → `400` validación.
+
+> **Interno — pendiente definir con Sistema de Gestión:** acordar cómo se pasa el
+> serial por equipo. La OLT ZHONE exhibe 8 chars (col. 3, ej. `4AAD8294`) pero GenieACS
+> guarda 16 hex. Recomendación: Gestión envía siempre los 16 hex; el gateway acepta
+> sufijo de 8 solo como fallback con `409` en colisión, nunca resuelve ambiguo en
+> silencio. Evaluar validación en carga masiva/bulk para evitar tipeo manual y
+> complementar con LOID/pon-port como segundo factor si persiste el factor humano.
 
 > Nota: el `_deviceId` puede contener puntos en el `PRODUCTCLASS`, por eso se consulta por
 > `_id` con `encodeURIComponent` y la extracción de serial se hace sobre el último segmento.
@@ -550,8 +565,8 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 
 CREATE TABLE IF NOT EXISTS devices (
-  serial TEXT PRIMARY KEY,
-  device_id TEXT NOT NULL,
+  device_id TEXT PRIMARY KEY,
+  serial TEXT NOT NULL,
   manufacturer TEXT,
   model TEXT,
   profile TEXT NOT NULL,
@@ -559,7 +574,7 @@ CREATE TABLE IF NOT EXISTS devices (
   last_inform TEXT,
   updated_at TEXT
 );
-CREATE INDEX IF NOT EXISTS idx_devices_device_id ON devices(device_id);
+CREATE INDEX IF NOT EXISTS idx_devices_serial ON devices(serial);
 
 CREATE TABLE IF NOT EXISTS tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
