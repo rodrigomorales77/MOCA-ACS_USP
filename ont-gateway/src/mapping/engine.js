@@ -94,7 +94,11 @@ function detectInstance(snapshot, byStatusPattern, equals) {
 }
 
 function isEmptyValue(v) {
-  return v === undefined || v === null || v === '';
+  if (v === undefined || v === null || v === '') return true;
+  // GenieACS metadata sin valor: {_object:false,_writable:true} sin _value
+  if (v && typeof v === 'object' && '_object' in v && !('_value' in v)) return true;
+  if (v && typeof v === 'object' && '_value' in v && (v._value === undefined || v._value === null || v._value === '')) return true;
+  return false;
 }
 
 async function read(group, deviceRow, nbiSnapshotOverride) {
