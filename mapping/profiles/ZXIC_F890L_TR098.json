@@ -69,7 +69,9 @@
     }
   },
 
-  "actions": {},
+  "actions": {
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo." }
+  },
 
   "groups": {
     "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version"],
