@@ -41,8 +41,13 @@ async function handleResponse(res) {
     err.status = res.status;
     throw err;
   }
-  const data = await res.json();
-  return data;
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json') || res.status === 200) {
+    const text = await res.text();
+    if (!text) return {};
+    try { return JSON.parse(text); } catch { return text; }
+  }
+  return {};
 }
 
 /**
@@ -89,4 +94,24 @@ async function getDevice(deviceId, projection) {
   return data[0];
 }
 
-module.exports = { getDevices, getDevice, TIMEOUT_MS };
+async function createTask(deviceId, taskPayload, connectionRequest = true) {
+  const params = {};
+  if (connectionRequest) params.connection_request = '';
+  // GenieACS NBI: POST /devices/:id/tasks?connection_request
+  const path = `/devices/${encodeURIComponent(deviceId)}/tasks`;
+  const url = buildUrl(path, connectionRequest ? params : null);
+  // When params has empty string value, URLSearchParams will add ?connection_request=
+  // Ensure query is ?connection_request when true
+  let finalUrl = url;
+  if (connectionRequest && !finalUrl.includes('connection_request')) {
+    finalUrl = url + (url.includes('?') ? '&' : '?') + 'connection_request';
+  }
+  const res = await fetchWithTimeout(finalUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(taskPayload),
+  });
+  return handleResponse(res);
+}
+
+module.exports = { getDevices, getDevice, createTask, TIMEOUT_MS };

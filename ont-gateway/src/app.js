@@ -8,7 +8,7 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Health check (no auth)
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
