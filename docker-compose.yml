@@ -67,7 +67,9 @@ services:
       - "10.0.2.14:3000:3000"
 
   moca-gateway:
-    build: ./ont-gateway
+    build:
+      context: .
+      dockerfile: ont-gateway/Dockerfile
     container_name: moca-gateway
     restart: unless-stopped
     init: true
