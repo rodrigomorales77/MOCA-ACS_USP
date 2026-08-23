@@ -435,6 +435,7 @@ Catálogo de transformers implementado (`mapping/transformers.js`), validado con
 - `wan_mode_huawei` / `wan_status_huawei` — `IP_Routed/IP_Bridged` ⇄ `pppoe/bridge`
 - `parse_dbm_string` / `parse_temp_string` — `"-21.5 dBm"` / `"38 C"` → float
 - `dbm_milli_to_dbm` — compatibilidad por si algún FW reporta ×10/×1000 (Huawei hoy reporta entero, Zhone vía string)
+- ZTE F890L: sin transformers en v1 — los 9 params mapeados son strings planos (`SSID`/`ExternalIPAddress`); el volcado trae 436/475 valores vacíos y 93 params `X_CMCC_*` vendor fuera del catálogo v1 (v2 si la flota crece)
 
 ---
 
