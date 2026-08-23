@@ -66,6 +66,28 @@ services:
     ports:
       - "10.0.2.14:3000:3000"
 
+  moca-gateway:
+    build: ./ont-gateway
+    container_name: moca-gateway
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      - GATEWAY_PORT=${GATEWAY_PORT:-3001}
+      - GATEWAY_DB_PATH=/app/data/gateway.db
+      - GENIEACS_NBI_URL=http://moca-genieacs:7557
+    volumes:
+      - ./data/gateway:/app/data
+    networks:
+      - moca-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${GATEWAY_PORT:-3001}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "127.0.0.1:${GATEWAY_PORT:-3001}:3001"
+
   moca-nginx:
     image: nginx:alpine
     container_name: moca-nginx
