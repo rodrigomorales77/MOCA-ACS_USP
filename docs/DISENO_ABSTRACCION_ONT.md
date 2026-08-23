@@ -426,15 +426,15 @@ Metadata soportada por `params.<nombre>`:
 transform(value, direction) => value
 ```
 
-Catálogo inicial de transformers esperado (a confirmar con el inventario):
+Catálogo de transformers implementado (`mapping/transformers.js`), validado con inventario F2:
 
-- `bool_1_0_string` — booleano canónico ⇄ `"1"`/`"0"` (o `"true"`/`"false"`, según perfil)
-- `dbm_milli_to_dbm` — potencias ópticas en escalas distintas (Huawei suele reportar en
-  unidades ×0.1 dBm o valores especiales)
-- `wifi_security_enum` — enums de seguridad por fabricante (WPA2-PSK vs `"WPA2-PSK"` vs
-  códigos)
-- `bandwidth_enum` — canales/bandwidth codificados (20/40/80 ↔ códigos)
-- `wifi_passphrase` — validación de largo 8-63 (write-only)
+- `bool_1_0_string` / `bool_true_false_string` — booleano canónico ⇄ `"1"`/`"0"` o `"true"`/`"false"` según perfil
+- `wifi_passphrase` — valida 8-63 chars en `to_device` (WO)
+- `wifi_security_zhone` — `WPA2/WPA/WEP/""` ⇄ `wpa2-psk/wpa-psk/wep/none`
+- `wan_mode_zhone` / `wan_status_zhone` — `IP_Bridged/PPPoE_Bridged` ⇄ `bridge/pppoe`
+- `wan_mode_huawei` / `wan_status_huawei` — `IP_Routed/IP_Bridged` ⇄ `pppoe/bridge`
+- `parse_dbm_string` / `parse_temp_string` — `"-21.5 dBm"` / `"38 C"` → float
+- `dbm_milli_to_dbm` — compatibilidad por si algún FW reporta ×10/×1000 (Huawei hoy reporta entero, Zhone vía string)
 
 ---
 
@@ -698,11 +698,11 @@ Orden recomendado, cada paso preserva el contrato de la v1:
 
 | Fase | Entregable | Estado |
 |---|---|---|
-| F1 | Este documento de diseño | ✅ |
-| F2 | Inventario: volcar las 3 planillas a `data/inventory/`, análisis por perfil (comunes/exclusivos, RO/RW, escalas) | ⏳ pendiente de planillas |
-| F3 | `catalog.json` (modelo canónico v0) + `profile.schema.json` | ⏳ |
-| F4 | `profiles/*.json` + `transformers.js` (para HG8245H y ZNID24xxA1 en ambos árboles) | ⏳ |
-| F5 | Implementación de `ont-gateway/` + `docker-compose.yml` + pruebas contra simulador | ⏳ |
+| F1 | Este documento de diseño | ✅ 2026-08-05 |
+| F2 | Inventario: 9 planillas → `data/inventory/`, `INVENTARIO_ONT.md` (6 ZNID + HS8145X6 + F890L, escalas y feature-detect) | ✅ 2026-08-19 |
+| F3 | `catalog.json` + `profile.schema.json` + `models.json` + 3 perfiles | ✅ 2026-08-19 |
+| F4 | `profiles/*.json` + `transformers.js` (ZHONE/HUAWEI/ZXIC, 11 transformers, 4 fixes aplicados) | ✅ 2026-08-23 |
+| F5 | Implementación de `ont-gateway/` + `docker-compose.yml` + pruebas contra NBI | ⏳ siguiente |
 
 ---
 
