@@ -583,11 +583,14 @@ CREATE TABLE IF NOT EXISTS tasks (
   profile TEXT NOT NULL,
   action TEXT NOT NULL,              -- p. ej. 'wifi.update', 'reboot', 'diagPing'
   payload_canonical TEXT,            -- JSON canónico (auditoría)
-  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','applied','failed')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','applied','failed','expired')),
   error TEXT,
   result TEXT,                       -- salida de RPCs de diagnóstico
   api_key_id INTEGER,
   created_at TEXT DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL DEFAULT (datetime('now', '+24 hours')), -- TTL default 24 h, configurable por endpoint
+  attempt_count INTEGER DEFAULT 0,
+  max_attempts INTEGER,              -- 3 para reboot/factoryReset, NULL para el resto
   applied_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
@@ -609,10 +612,21 @@ CREATE TABLE IF NOT EXISTS audit_log (
 Mismo patrón que el `scheduler` de MOCA:
 
 - Corre cada 60 s, con flag `isRunning` para evitar solapamiento.
-- Toma tareas `pending` ordenadas por `created_at`.
-- Para cada una: traduce payload canónico → `setParameterValues` (o el task definido) y
-  llama `POST /devices/{id}/tasks?connection_request` al NBI.
-- Éxito → `applied` + `applied_at`; error → `failed` + `error`.
+- Toma tareas `pending` donde `datetime('now') < expires_at` ordenadas por `created_at`;
+  si la tarea venció → `expired` sin tocar el NBI.
+- Para cada una: incrementa `attempt_count`; traduce payload canónico →
+  `setParameterValues` (o el task definido) y llama
+  `POST /devices/{id}/tasks?connection_request` al NBI. Reintenta cada ciclo
+  dentro de la ventana TTL (default 24 h, configurable por endpoint `?ttl=`).
+- Para `reboot`/`factoryReset` con `max_attempts = 3` (default): si
+  `attempt_count >= max_attempts` → `failed` + `error = 'max_attempts'`
+  (evita reboots en bucle si GenieACS responde `fault` intermitente).
+- Éxito → `applied` + `applied_at`; error no destructivo → permanece `pending`
+  hasta el próximo ciclo o hasta `expired`.
+- `POST /onts/{serial}/refresh` valida `last_inform` vs TTL: si el equipo lleva
+  offline > TTL → `409` con `{ taskId }` opcional, evita encolar tareas que
+  nacerían vencidas. `GET /tasks/{id}` y `GET /tasks?serial=` devuelven
+  `created_at`/`expires_at`/`attempt_count`/`max_attempts`.
 
 ### 10.3 Semántica de `applied`
 
