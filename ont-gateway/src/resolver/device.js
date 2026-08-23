@@ -10,8 +10,8 @@ function resolveDevice(serial) {
   const normalized = normalizeSerial(serial);
   const len = normalized.length;
 
-  if (len !== 16 && len !== 8) {
-    const err = new Error('Serial debe tener 16 caracteres o sufijo de 8');
+  if (len !== 16 && len !== 12 && len !== 8) {
+    const err = new Error('Serial debe tener 16, 12 (ZNTS+8) o sufijo de 8 caracteres');
     err.status = 400;
     throw err;
   }
@@ -19,12 +19,12 @@ function resolveDevice(serial) {
   const db = getDb();
 
   let rows;
-  if (len === 16) {
+  if (len === 16 || len === 12) {
     rows = db.prepare(
       'SELECT * FROM devices WHERE serial = ? COLLATE NOCASE'
     ).all(normalized);
   } else {
-    // len === 8: suffix search
+    // len === 8: suffix search (cubre tanto 16 hex como ZNTS+8)
     rows = db.prepare(
       "SELECT * FROM devices WHERE serial LIKE '%' || ? COLLATE NOCASE"
     ).all(normalized);
