@@ -6,13 +6,10 @@
 //
 // BUG ORIGINAL: Date.now(86400000) — Date.now() IGNORA argumentos,
 // daily = Date.now() sin redondear → provision se re-aplicaba en cada sesión.
-// FIX: redondear al día para que solo se re-aplique una vez por día.
-//
-// NOTA SOBRE informTime: el comentario original dice "unique inform offset per
-// device" pero daily % 86400000 = 0 cuando daily está redondeado al día.
-// La unicidad real depende de GenieACS: si Math.random() está seeded por device ID,
-// cada dispositivo recibe un informTime diferente en su primera sesión.
-// Revisar si se necesita hacer explícita la diferenciación por dispositivo.
+// FIX 1: redondear daily al día para que solo se re-aplique una vez por día.
+// FIX 2 (2026-08-21): informTime determinístico por device — hash(DeviceID.ID)
+//   % 86400 distribuye PeriodicInformTime uniformemente y evita picos de
+//   ~3886 informs alineados. Reemplaza daily % 86400000 (=0 tras el redondeo).
 
 // Device ID as user name
 const username = declare("DeviceID.ID", {value: 1}).value[0]
@@ -25,8 +22,13 @@ const informInterval = 300;
 // Refresh values daily (rounded to start of day)
 const daily = Date.now() - (Date.now() % 86400000);
 
-// Unique inform offset per device for better load distribution
-const informTime = daily % 86400000;
+// Deterministic per-device inform offset for load distribution
+function simpleHash(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i) | 0;
+  return Math.abs(h);
+}
+const informTime = simpleHash(username) % 86400;
 
 declare("InternetGatewayDevice.ManagementServer.ConnectionRequestUsername", {value: daily}, {value: username});
 declare("InternetGatewayDevice.ManagementServer.ConnectionRequestPassword", {value: daily}, {value: password});

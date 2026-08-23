@@ -40,7 +40,7 @@ Configura `ConnectionRequestUsername/Password`, `PeriodicInformEnable/Interval/T
 
 **FIX 2026-08-21:** `Date.now(86400000)` ignora el argumento → el provision se re-aplicaba en cada sesión. Fix: `Date.now() - (Date.now() % 86400000)` redondea al inicio del día.
 
-**Nota sobre `informTime`:** El comentario dice "unique inform offset per device" pero `daily % 86400000 = 0` cuando `daily` está redondeado. La diferenciación depende de la semilla de `Math.random()` por device ID en GenieACS.
+**FIX 2026-08-21 (informTime):** `daily % 86400000` daba `0` para todos tras el redondeo → todos los CPEs con `PeriodicInformTime=0` (pico de ~3886 informs alineados). Fix: `simpleHash(DeviceID.ID) % 86400` distribuye el offset uniformemente en el día, de forma determinística por dispositivo.
 
 ## Aplicación
 
