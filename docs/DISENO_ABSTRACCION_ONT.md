@@ -399,6 +399,7 @@ Metadata soportada por `params.<nombre>`:
 | `transform` | string | no | nombre de función en `transformers.js` |
 | `enum` | array | no | valores canónicos posibles (para validación en PATCH) |
 | `read_paths` | array | no | rutas alternativas de lectura cuando la instancia varía (p. ej. WAN activa) |
+| `select` | object | no | regla de selección de instancia: `{ by_status, equals }` — resuelve `{i}` en runtime |
 | `description` | string | no | para documentación |
 
 ### 8.1 Transformers
@@ -433,19 +434,25 @@ con código específico es `transformers.js` (funciones puras por nombre).
 1. Resolver `serial → device_id + profile` (índice local, §5).
 2. Cargar `profiles/<profile>.json`.
 3. Tomar los `params` del grupo solicitado.
-4. Consultar NBI: `GET /devices?query={_id}&projection=<paths reales + read_paths>`.
-5. Para cada valor: aplicar `transform(..., 'to_canonical')`.
-6. Campos `WO` se omiten del resultado (nunca se leen).
-7. Respuesta con la estructura del grupo (§6.2).
+4. Si algún param declara `select`, resolver la instancia activa: consultar
+   `select.by_status` (wildcard `*`) y tomar el índice donde el valor es
+   `select.equals` (ej. Zhone escanea `LANDevice.*.X_ZHONE_COM_PPPoEStatus.ConnectionStatus = Connected`).
+   Sustituir `{i}` en `path`. Para Huawei la instancia es fija por rol (`WANConnectionDevice.1` = PPPoE).
+5. Consultar NBI: `GET /devices?query={_id}&projection=<paths reales + read_paths>` (con `{i}` ya resuelto).
+6. Para cada valor: aplicar `transform(..., 'to_canonical')`.
+7. Campos `WO` se omiten del resultado (nunca se leen).
+8. Respuesta con la estructura del grupo (§6.2).
 
 ### 9.2 Escritura (`PATCH /onts/{serial}/{section}`)
 
 1. Validar el cuerpo contra el catálogo y el perfil (`400`/`422` si hay campos no
    soportados o valores inválidos).
-2. Aplicar `transform(..., 'to_device')` a cada campo.
-3. Crear tarea `pending` en SQLite con el payload canónico (para auditoría).
-4. Encargar la ejecución al job `task-runner.js` (§10).
-5. Responder `202 + { taskId }`.
+2. Resolver `select` igual que en lectura (paso 4 de §9.1) para determinar la instancia
+   destino; si `wan.mode` cambia, el mapeo puede declarar `multi_field` (un canónico → varios paths).
+3. Aplicar `transform(..., 'to_device')` a cada campo.
+4. Crear tarea `pending` en SQLite con el payload canónico (para auditoría).
+5. Encargar la ejecución al job `task-runner.js` (§10).
+6. Responder `202 + { taskId }`.
 
 ### 9.3 Acciones (`POST`)
 
