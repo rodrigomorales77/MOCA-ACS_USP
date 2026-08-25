@@ -1,18 +1,38 @@
 'use strict';
 
 const FaultsPage = (() => {
-  async function render() {
+  const LIMIT = 100;
+  let skip = 0;
+  let total = 0;
+
+  async function load(targetSkip) {
     Header.render('Fallas');
     const content = document.getElementById('page-content');
     content.innerHTML = '<div class="loading">Cargando fallas...</div>';
 
-    const faults = await API.get('/faults?limit=100');
+    const sort = encodeURIComponent('{"timestamp":-1}');
+    const res = await API.get(`/faults?limit=${LIMIT}&skip=${targetSkip}&sort=${sort}`);
+
+    const faults = Array.isArray(res) ? res : (res.faults || []);
+    total = Array.isArray(res) ? res.length : (res.total ?? faults.length);
+    skip = Array.isArray(res) ? 0 : (res.skip ?? targetSkip);
+
     const isAdmin = Auth.isAdmin();
 
+    const start = total === 0 ? 0 : skip + 1;
+    const end = Math.min(skip + faults.length, total);
+    const rangeText = total === 0 ? 'Sin fallas' : `Mostrando ${start}–${end} de ${total}`;
+
     content.innerHTML = `
-      <h1 class="page-title">Fallas Activas <span style="font-size:1rem;color:var(--color-text-muted)">(${faults.length})</span></h1>
+      <h1 class="page-title">Fallas Activas <span style="font-size:1rem;color:var(--color-text-muted)">(${total})</span></h1>
+      <div style="margin:8px 0 12px;color:var(--color-text-muted);font-size:0.9rem">${rangeText} · orden: más recientes primero</div>
       <div class="table-wrapper">
         <div id="faults-table"></div>
+      </div>
+      <div id="faults-pagination" style="display:flex;gap:8px;align-items:center;margin-top:12px">
+        <button id="faults-prev" class="btn btn-sm" ${skip === 0 ? 'disabled' : ''}>← Anterior</button>
+        <span style="font-size:0.9rem;color:var(--color-text-muted)">Página ${total === 0 ? 0 : Math.floor(skip / LIMIT) + 1} de ${Math.max(1, Math.ceil(total / LIMIT))}</span>
+        <button id="faults-next" class="btn btn-sm" ${skip + LIMIT >= total ? 'disabled' : ''}>Siguiente →</button>
       </div>`;
 
     const columns = [
@@ -43,6 +63,15 @@ const FaultsPage = (() => {
       emptyMessage: '✅ Sin fallas activas'
     });
 
+    document.getElementById('faults-prev').addEventListener('click', () => {
+      if (skip === 0) return;
+      load(Math.max(0, skip - LIMIT));
+    });
+    document.getElementById('faults-next').addEventListener('click', () => {
+      if (skip + LIMIT >= total) return;
+      load(skip + LIMIT);
+    });
+
     if (isAdmin) {
       document.getElementById('faults-table').querySelectorAll('[data-fault]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -50,10 +79,20 @@ const FaultsPage = (() => {
           const faultId = btn.dataset.fault;
           if (!await Modal.confirm(`¿Limpiar la falla "${faultId}"?`)) return;
           await API.delete(`/faults/${encodeURIComponent(faultId)}`);
-          render();
+          // Recargar página actual; si era el último de la página y queda vacía, retroceder
+          const remaining = total - 1;
+          const maxSkip = Math.max(0, Math.ceil(remaining / LIMIT) - 1) * LIMIT;
+          const nextSkip = skip > maxSkip ? maxSkip : skip;
+          total = remaining;
+          load(nextSkip);
         });
       });
     }
+  }
+
+  async function render() {
+    skip = 0;
+    await load(0);
   }
 
   return { render };

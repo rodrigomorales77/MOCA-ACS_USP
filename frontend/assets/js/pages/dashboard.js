@@ -32,10 +32,12 @@ const DashboardPage = (() => {
     content.innerHTML = '<div class="dashboard-loading"><div class="spinner"></div><p>Cargando métricas...</p></div>';
 
     try {
-      const [faults, stats] = await Promise.all([
-        API.get('/faults?limit=200'),
+      const [faultsRes, stats] = await Promise.all([
+        API.get('/faults?limit=200&sort=' + encodeURIComponent('{"timestamp":-1}')),
         API.get('/devices/stats/summary')
       ]);
+      const faultList = Array.isArray(faultsRes) ? faultsRes : (faultsRes.faults || []);
+      const faultsTotal = Array.isArray(faultsRes) ? faultsRes.length : (faultsRes.total ?? faultList.length);
 
       const lastUpdate = Config.formatDate(new Date());
       const onlinePercent = stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
@@ -89,7 +91,7 @@ const DashboardPage = (() => {
             <div class="metric-card metric-card-warning" style="animation-delay: 0.15s">
               <div class="metric-icon">⚠</div>
               <div class="metric-content">
-                <div class="metric-value">${faults.length}</div>
+                <div class="metric-value">${faultsTotal}</div>
                 <div class="metric-label">Fallas Activas</div>
               </div>
             </div>

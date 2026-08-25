@@ -70,7 +70,7 @@
   },
 
   "actions": {
-    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo." }
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" }
   },
 
   "groups": {

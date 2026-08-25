@@ -3,6 +3,8 @@
 // Configura: ConnectionRequest credentials, PeriodicInformEnable/Interval/Time
 //
 // REVISION 2026-08-21 — fix timestamp redondeado (resolve bug Date.now(86400000))
+// REVISION 2026-08-25 — fix cwmp.9002 PeriodicInformTime must be xsd:dateTime
+// REVISION 2026-08-25b — test Huawei sin millis (.000Z → Z)
 //
 // BUG ORIGINAL: Date.now(86400000) — Date.now() IGNORA argumentos,
 // daily = Date.now() sin redondear → provision se re-aplicaba en cada sesión.
@@ -10,6 +12,13 @@
 // FIX 2 (2026-08-21): informTime determinístico por device — hash(DeviceID.ID)
 //   % 86400 distribuye PeriodicInformTime uniformemente y evita picos de
 //   ~3886 informs alineados. Reemplaza daily % 86400000 (=0 tras el redondeo).
+// FIX 3 (2026-08-25): PeriodicInformTime es xsd:dateTime, no entero.
+//   El valor entero (0-86399) provocaba cwmp.9002 en CPEs estrictos.
+//   Fix: new Date(daily + informOffset*1000).toISOString() — deployed
+//   2026-08-25T14:20:13Z via mongo update + docker restart moca-genieacs.
+// FIX 3b (2026-08-25): Huawei HS8145X6 sigue con 9002 aun con toISOString con
+//   millis (.000Z). CPE estricto espera xsd:dateTime sin millis (TR-069
+//   examples: 2021-01-01T00:00:00Z). Test: .replace(/\.\d+Z$/, 'Z')
 
 // Device ID as user name
 const username = declare("DeviceID.ID", {value: 1}).value[0]
@@ -28,7 +37,8 @@ function simpleHash(str) {
   for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i) | 0;
   return Math.abs(h);
 }
-const informTime = simpleHash(username) % 86400;
+const informOffset = simpleHash(username) % 86400;
+const informTime = new Date(daily + informOffset * 1000).toISOString().replace(/\.\d+Z$/, 'Z');
 
 declare("InternetGatewayDevice.ManagementServer.ConnectionRequestUsername", {value: daily}, {value: username});
 declare("InternetGatewayDevice.ManagementServer.ConnectionRequestPassword", {value: daily}, {value: password});
