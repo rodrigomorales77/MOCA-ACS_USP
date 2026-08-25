@@ -4,7 +4,7 @@
 //
 // REVISION 2026-08-21 — fix timestamp redondeado (resolve bug Date.now(86400000))
 // REVISION 2026-08-25 — fix cwmp.9002 PeriodicInformTime must be xsd:dateTime
-// REVISION 2026-08-25b — test Huawei sin millis (.000Z → Z)
+// REVISION 2026-08-25b — handle HS8145X6 inline (producto con firmware V5R021 rechaza PeriodicInformTime)
 //
 // BUG ORIGINAL: Date.now(86400000) — Date.now() IGNORA argumentos,
 // daily = Date.now() sin redondear → provision se re-aplicaba en cada sesión.
@@ -16,12 +16,16 @@
 //   El valor entero (0-86399) provocaba cwmp.9002 en CPEs estrictos.
 //   Fix: new Date(daily + informOffset*1000).toISOString() — deployed
 //   2026-08-25T14:20:13Z via mongo update + docker restart moca-genieacs.
-// FIX 3b (2026-08-25): Huawei HS8145X6 sigue con 9002 aun con toISOString con
-//   millis (.000Z). CPE estricto espera xsd:dateTime sin millis (TR-069
-//   examples: 2021-01-01T00:00:00Z). Test: .replace(/\.\d+Z$/, 'Z')
+// FIX 4 (2026-08-25c): HS8145X6 V5R021 rechaza PeriodicInformTime incluso con
+//   formato válido (cwmp.9002 "Unknown Time"). Root cause: firmware viejo no
+//   acepta el parámetro. Solución prod: bypass inline — no se declara
+//   PeriodicInformTime si ProductClass == HS8145X6. Elimina necesidad de
+//   provision/preset separado (inform_huawei_test). Un solo preset "inform"
+//   sin precondition, lógica condicional dentro del script.
 
 // Device ID as user name
 const username = declare("DeviceID.ID", {value: 1}).value[0]
+const productClass = declare("DeviceID.ProductClass", {value: 1}).value[0];
 
 // Password will be fixed for a given device because Math.random() is seeded with device ID by default.
 const password = Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER).toString(36);
@@ -44,10 +48,14 @@ declare("InternetGatewayDevice.ManagementServer.ConnectionRequestUsername", {val
 declare("InternetGatewayDevice.ManagementServer.ConnectionRequestPassword", {value: daily}, {value: password});
 declare("InternetGatewayDevice.ManagementServer.PeriodicInformEnable", {value: daily}, {value: true});
 declare("InternetGatewayDevice.ManagementServer.PeriodicInformInterval", {value: daily}, {value: informInterval});
-declare("InternetGatewayDevice.ManagementServer.PeriodicInformTime", {value: daily}, {value: informTime});
+if (productClass !== "HS8145X6") {
+  declare("InternetGatewayDevice.ManagementServer.PeriodicInformTime", {value: daily}, {value: informTime});
+}
 
 declare("Device.ManagementServer.ConnectionRequestUsername", {value: daily}, {value: username});
 declare("Device.ManagementServer.ConnectionRequestPassword", {value: daily}, {value: password});
 declare("Device.ManagementServer.PeriodicInformEnable", {value: daily}, {value: true});
 declare("Device.ManagementServer.PeriodicInformInterval", {value: daily}, {value: informInterval});
-declare("Device.ManagementServer.PeriodicInformTime", {value: daily}, {value: informTime});
+if (productClass !== "HS8145X6") {
+  declare("Device.ManagementServer.PeriodicInformTime", {value: daily}, {value: informTime});
+}
