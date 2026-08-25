@@ -35,12 +35,30 @@ const FaultsPage = (() => {
         <button id="faults-next" class="btn btn-sm" ${skip + LIMIT >= total ? 'disabled' : ''}>Siguiente →</button>
       </div>`;
 
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function faultDetail(f) {
+      const d = f.detail || {};
+      const spv = d.setParameterValuesFault && d.setParameterValuesFault[0];
+      if (spv) {
+        const name = spv.parameterName || '';
+        const msg = spv.faultString || spv.faultCode || '';
+        const full = name ? `${name}: ${msg}` : msg;
+        return `<span title="${escapeHtml(full)}">${escapeHtml(full) || '—'}</span>`;
+      }
+      if (d.faultString) return `<span title="${escapeHtml(d.faultString)}">${escapeHtml(d.faultString)}</span>`;
+      if (d.faultCode) return `<span title="${escapeHtml(d.faultCode)}">${escapeHtml(d.faultCode)}</span>`;
+      return '—';
+    }
+
     const columns = [
       { key: '_id',     label: 'ID' },
       { key: 'device',  label: 'Dispositivo' },
       { key: 'channel', label: 'Canal' },
       { key: 'code',    label: 'Código' },
       { key: 'message', label: 'Mensaje' },
+      { label: 'Detalle', render: faultDetail },
       {
         label: 'Fecha',
         render: f => f.timestamp
