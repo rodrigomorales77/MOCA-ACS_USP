@@ -15,7 +15,7 @@
 | F5 slice 2 — resolver + motor mapping + GET lectura | ✅ | `GET /onts`, `/device`, `/wifi`, `/wan`, `/lan`, `/gpon`, `/diagnostics`, `/capabilities` |
 | F5 slice 3 — PATCH/POST escrituras + jobs TTL | ✅ | `PATCH /wifi`,`/wan`,`/lan`; `POST /reboot`,`/factory-reset`,`/refresh`,`/diagnostics/ping`,`/diagnostics/traceroute`; `GET /tasks` |
 | **upgrade / firmware** | ❌ | No implementado en v1 (ver §7). Pendiente rediseño de `firmware-monitor` |
-| Cobertura perfil ZXIC (password/lan/gpon) | ⚠️ | Password WiFi ✅ soportado (PreSharedKey.1.KeyPassphrase); `lan.*`/`gpon.*` pendientes de probe/extensión (ver §5/§6) |
+| Cobertura perfil ZXIC (password/lan/gpon) | ✅ parcial | Password WiFi ✅ (PreSharedKey.1.KeyPassphrase); GPON LOID ✅ lectura (`X_CMCC_UserInfo.UserId`); LAN IP ❌ no expuesta por el equipo (gap) |
 
 **Lectura:** ya probada (comandos de consulta OK).
 **Escritura:** NO probada de extremo a extremo vía gateway hasta este plan. La prueba de SSID con caracteres especiales (`docs/tr069-ssid-tests.md`) se hizo directo contra el NBI de GenieACS, no vía `ont-gateway`.
@@ -73,13 +73,14 @@ Mapeables en ZXIC ✅. Riesgo: baja (reversible, no desconecta).
 
 ## 5. Nivel 3 — Configuración de red (LAN / WAN / GPON)
 
-⚠️ **Gap ZXIC:** el perfil no declara `lan.*` ni `gpon.*`. `PATCH /lan` y `PATCH /gpon` devolverán `422` en ZXIC hasta extender el perfil.
+**ZXIC (actualizado 2026-08-26):** el perfil ahora expone `gpon.loid` (**read-only**) mapeado a `InternetGatewayDevice.X_CMCC_UserInfo.UserId` (LOID de registración GPON china-mobile). `GET /onts/{serial}/gpon` devuelve `loid` soportado. No escribir el LOID (des-registraría la ONU).
+⚠️ **Gap LAN IP:** el equipo NO expone IP de LAN por TR-069 (el único IPv4 del árbol es WAN `ExternalIPAddress`, ya mapeado como `wan.ip`). `PATCH /lan` devuelve `422` (sin `lan.*` en el perfil) y no hay path descubrible para LAN IP. `lan.ip` queda no soportado.
 
 | # | Método + endpoint | Body | Verificación | Rollback |
 |---|-------------------|------|--------------|----------|
 | 3.1 | `PATCH /onts/{serial}/wan` | `{"wan.pppoe.username":"<user>"}` | `GET /tasks/{id}`→`applied`; `GET /onts/{serial}/wan`→`value` | reenviar original |
-| 3.2 | `PATCH /onts/{serial}/lan` | `{"lan.ip":"192.168.1.1"}` | `GET /onts/{serial}/lan`→`value` | reenviar original |
-| 3.3 | `PATCH /onts/{serial}/gpon` | `{"gpon.loid":"<loid>"}` | `GET /onts/{serial}/gpon`→`value` | reenviar original |
+| 3.2 | `GET /onts/{serial}/lan` | — | `422` — LAN IP no expuesta por el equipo (gap, no mapeable) | n/a |
+| 3.3 | `GET /onts/{serial}/gpon` | — | `data.gpon.loid.value` = LOID (`X_CMCC_UserInfo.UserId`). Solo lectura | n/a |
 
 **Sobre "descripciones":** no existe un parámetro de descripción/friendly-name en el catálogo actual. Si te referís a un campo de nombre del equipo, hay que agregarlo al catálogo + perfil. Confirmar qué campo exacto querés modificar.
 
@@ -111,11 +112,11 @@ Mapeables en ZXIC ✅. Riesgo: baja (reversible, no desconecta).
 |-------|-----------|-----------------|------------|
 | 1 WiFi SSID | ✅ (perfil OK) | ✅ | ✅ |
 | 2 Password | ✅ (PreSharedKey.1.KeyPassphrase) | ✅ | ✅ |
-| 3 LAN/WAN/GPON | ⚠️ falta perfil (lan/gpon) | ✅ (gpon vía X_Gpon) | ✅ |
+| 3 LAN/WAN/GPON | ✅ GPON LOID (ro vía X_CMCC); ❌ LAN IP (no expuesta) | ✅ (gpon vía X_Gpon) | ✅ |
 | 4 Reboot/Refresh | ✅ | ✅ | ✅ |
 | 5 Factory/Upgrade | Factory ✅ / Upgrade ❌ | igual | igual |
 
-**Pendientes para cubrir ZXIC completo:** extender `mapping/profiles/ZXIC_F890L_TR098.json` con `lan.ip` (y demás LAN), `gpon.*` según export real del equipo (password WiFi ya agregado el 2026-08-26). Esto bloquea Nivel 3 en la ONU de prueba.
+**Pendientes para cubrir ZXIC completo:** `lan.ip` NO es mapeable (el equipo no expone IP de LAN por TR-069 — gap real). `gpon.loid` ya soportado (ro, `X_CMCC_UserInfo.UserId`). Password WiFi ya agregado el 2026-08-26. Nivel 3 en ZXIC: GPON LOID ✅ lectura, LAN IP ❌.
 
 ---
 
