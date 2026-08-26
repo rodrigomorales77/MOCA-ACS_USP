@@ -393,7 +393,7 @@ Cada perfil (fabricante + modelo + árbol) tiene su JSON en `profiles/`. Formato
   "actions": {
     "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
     "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
-    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo." }
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" }
   },
   "groups": {
     "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.bandwidth", "wifi.radio.2g.security", "wifi.radio.2g.max_clients", "wifi.radio.2g.tx_power", "wifi.radio.2g.ssid_hidden"],

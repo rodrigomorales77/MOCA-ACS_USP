@@ -42,6 +42,8 @@ Configura `ConnectionRequestUsername/Password`, `PeriodicInformEnable/Interval/T
 
 **FIX 2026-08-21 (informTime):** `daily % 86400000` daba `0` para todos tras el redondeo → todos los CPEs con `PeriodicInformTime=0` (pico de ~3886 informs alineados). Fix: `simpleHash(DeviceID.ID) % 86400` distribuye el offset uniformemente en el día, de forma determinística por dispositivo.
 
+**FIX 2026-08-25 (cwmp.9002):** `PeriodicInformTime` es `xsd:dateTime`, no entero. El valor entero `0–86399` provocaba `cwmp.9002 Internal error` en CPEs estrictos (ZTE F890L). Fix: `new Date(daily + informOffset * 1000).toISOString()` — deployed `2026-08-25T14:20:13Z` via `db.provisions.updateOne` + `docker restart moca-genieacs`. Ver `docs/tr069-ssid-tests.md` §5.
+
 ## Aplicación
 
 ### Via NBI API (recomendado)
@@ -72,5 +74,8 @@ db.provisions.updateOne(
 |-------|----------|-----|------|
 | 2026-07-24 | CPU storm por `Date.now()` sin redondear en `declare()` | Redondear timestamp al intervalo (hora) | `default` |
 | 2026-08-21 | `Date.now(86400000)` ignora argumento, se re-aplica cada sesión | Redondear timestamp al día | `inform` |
+| 2026-08-21 | `PeriodicInformTime=0` para todos (pico ~3886 informs) | `simpleHash(DeviceID.ID) % 86400` | `inform` |
+| 2026-08-25 | `PeriodicInformTime` entero → `cwmp.9002` (xsd:dateTime esperado) | `new Date(daily+offset*1000).toISOString()` | `inform` |
+| 2026-08-25 | Validación SSID `&`, `!`, `<`, `>` vía CWMP | `&amp;` escaping OK, `<`/`>` rechazo 9003 sin ruptura | (test) |
 | 2026-07-09 | Tasks atascados por `INSERT OR IGNORE` en device-bootstrap | `INSERT OR REPLACE` | (código, no provision) |
 | 2026-08-12 | PI=15s en 785 ONTs → 55% tráfico CWMP | `setParameterValues` PI=300 | (operacional) |

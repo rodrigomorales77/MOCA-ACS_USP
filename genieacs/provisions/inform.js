@@ -8,6 +8,9 @@
 // REVISION 2026-08-25d — generalize PeriodicInformTime bypass: only set if currentTime != Unknown Time (any model)
 //   Cubre HS8145X6, F890L y futuros modelos sin denylist. Si el CPE reporta
 //   "0001-01-01T00:00:00Z" el firmware rechaza el set con cwmp.9007/9002; se omite.
+// REVISION 2026-08-26 — fix isUnknownTime for numeric -62135596800000 (ZXIC fix)
+//   GenieACS puede retornar PeriodicInformTime como number (-62135596800000) en lugar de
+//   string/Date; el check previo retornaba false y provocaba cwmp.9007. Ahora maneja number.
 //
 // BUG ORIGINAL: Date.now(86400000) — Date.now() IGNORA argumentos,
 // daily = Date.now() sin redondear → provision se re-aplicaba en cada sesión.
@@ -60,13 +63,13 @@ declare("InternetGatewayDevice.ManagementServer.PeriodicInformInterval", {value:
 // Esto generaliza el bypass para cualquier modelo/firmware que rechace el parámetro (HS8145X6 cwmp.9002, F890L cwmp.9007)
 // Guard contra branch inexistente y contra tipo Date (GenieACS retorna Date para xsd:dateTime — duck-typing por vm context)
 function isUnknownTime(v) {
-  if (!v) return false;
-  // Duck-typing Date: GenieACS vm puede no preservar instanceof
+  if (v == null) return false;
+  if (typeof v === "number") return v === -62135596800000;
   if (v && typeof v.getTime === "function" && typeof v.toISOString === "function") {
     try { return v.getTime() === -62135596800000 || v.toISOString().indexOf("0001-01-01") === 0; } catch(e){}
   }
   const s = String(v);
-  return s === "0001-01-01T00:00:00Z" || s === "0001-01-01T00:00:00.000Z" || s.indexOf("0001-01-01") === 0;
+  return s === "0001-01-01T00:00:00Z" || s === "0001-01-01T00:00:00.000Z" || s.indexOf("0001-01-01") === 0 || s === "-62135596800000";
 }
 const _igdTime = declare("InternetGatewayDevice.ManagementServer.PeriodicInformTime", {value: 1});
 const igdCurrentTime = _igdTime.value ? _igdTime.value[0] : undefined;
