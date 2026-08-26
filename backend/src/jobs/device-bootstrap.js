@@ -3,7 +3,7 @@
 const { getDb } = require('../config/db');
 const { nbi } = require('../config/genieacs');
 
-const CHECK_INTERVAL = 5 * 60 * 1000;
+const CHECK_INTERVAL = 15 * 60 * 1000;
 const MAX_REFRESH_PER_CYCLE = 50;
 
 let isRunning = false;
