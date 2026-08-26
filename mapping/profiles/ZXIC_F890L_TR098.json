@@ -56,7 +56,16 @@
       "mode": "rw",
       "description": "Config 2 y 5 son 5G (86a6he-5G). Config 2 es la primaria."
     },
-
+    "wifi.radio.2g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase",
+      "type": "string",
+      "mode": "wo"
+    },
+    "wifi.radio.5g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.2.PreSharedKey.1.KeyPassphrase",
+      "type": "string",
+      "mode": "wo"
+    },
     "wan.ip": {
       "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress",
       "type": "string",
@@ -75,8 +84,8 @@
 
   "groups": {
     "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version"],
-    "wifi.radio.2g": ["wifi.radio.2g.ssid"],
-    "wifi.radio.5g": ["wifi.radio.5g.ssid"],
+    "wifi.radio.2g": ["wifi.radio.2g.ssid", "wifi.radio.2g.password"],
+    "wifi.radio.5g": ["wifi.radio.5g.ssid", "wifi.radio.5g.password"],
     "wan": ["wan.ip", "wan.pppoe.username"]
   }
 }
