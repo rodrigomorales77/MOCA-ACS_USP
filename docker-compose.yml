@@ -80,6 +80,7 @@ services:
       - GENIEACS_NBI_URL=http://moca-genieacs:7557
     volumes:
       - ./data/gateway:/app/data
+      - ./mapping:/mapping:ro
     networks:
       - moca-net
     healthcheck:
