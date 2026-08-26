@@ -5,7 +5,7 @@
   "model": "F890L",
   "tree": "tr098",
   "firmware_min": "V9.1.0P1T1",
-  "description": "ZTE F890L (ZXIC) — WiFi 6, WAN IPoE, sin GPON/diagnósticos vía TR-069. Extensión vendor X_CMCC_*.",
+  "description": "ZTE F890L (ZXIC) — WiFi 6, WAN IPoE, LOID vía X_CMCC_UserInfo. Sin diagnósticos vía TR-069. Extensión vendor X_CMCC_*.",
 
   "capabilities": {
     "device": { "supported": true },
@@ -13,7 +13,7 @@
     "wifi.radio.5g": { "supported": true, "reason": "SSID present (config 2/5), Enable empty in export" },
     "wan": { "supported": true },
     "lan": { "supported": true },
-    "gpon": { "supported": false, "reason": "model_no_gpon_tree" },
+    "gpon": { "supported": true, "reason": "LOID via X_CMCC_UserInfo.UserId; no standard GPON tree" },
     "diagnostics": { "supported": false, "reason": "model_no_diagnostics" }
   },
 
@@ -75,6 +75,11 @@
       "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username",
       "type": "string",
       "mode": "rw"
+    },
+    "gpon.loid": {
+      "path": "InternetGatewayDevice.X_CMCC_UserInfo.UserId",
+      "type": "string",
+      "mode": "ro"
     }
   },
 
