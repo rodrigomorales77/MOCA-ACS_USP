@@ -30,7 +30,8 @@ function buildNbiTask(taskRow) {
 
   if (action === 'refresh' || action === 'actions.refresh') {
     const def = actions.refresh || {};
-    return { name: def.task || 'refreshObject', objectName: def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo.' };
+    const raw = def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo';
+    return { name: def.task || 'refreshObject', objectName: raw.replace(/\.$/, '') };
   }
 
   if (action === 'diagPing' || action === 'ping' || action === 'actions.ping') {

@@ -100,7 +100,7 @@
         "actions.factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
         "actions.ping": { "task": "diagPing", "body": "{ target }" },
         "actions.traceroute": { "task": "diagTraceRoute", "body": "{ target }" },
-        "actions.refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo." }
+        "actions.refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" }
       }
     }
   }

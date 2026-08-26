@@ -3,7 +3,7 @@
 const { getDb } = require('../config/db');
 const { nbi } = require('../config/genieacs');
 
-const CHECK_INTERVAL = 5 * 60 * 1000;
+const CHECK_INTERVAL = 15 * 60 * 1000;
 const MAX_REFRESH_PER_CYCLE = 50;
 
 let isRunning = false;
@@ -11,19 +11,34 @@ let isRunning = false;
 function getDeviceInfo(device) {
   if (device?.InternetGatewayDevice?.DeviceInfo) {
     return {
-      path: 'InternetGatewayDevice.DeviceInfo.',
+      path: 'InternetGatewayDevice.DeviceInfo',
       info: device.InternetGatewayDevice.DeviceInfo
     };
   }
 
   if (device?.Device?.DeviceInfo) {
     return {
-      path: 'Device.DeviceInfo.',
+      path: 'Device.DeviceInfo',
       info: device.Device.DeviceInfo
     };
   }
 
   return null;
+}
+
+function normalizeObjectName(path) {
+  return path ? path.replace(/\.$/, '') : path;
+}
+
+async function hasPendingRefreshTask(deviceId) {
+  try {
+    const query = JSON.stringify({ device: deviceId, name: 'refreshObject' });
+    const resp = await nbi.get('/tasks', { params: { query } });
+    const tasks = resp.data || [];
+    return Array.isArray(tasks) && tasks.length > 0;
+  } catch (_) {
+    return false;
+  }
 }
 
 async function bootstrapNewDevices() {
@@ -109,15 +124,24 @@ async function bootstrapNewDevices() {
               `[device-bootstrap] Nuevo dispositivo detectado: ${deviceId}`
             );
 
+            const objectName = normalizeObjectName(deviceInfo.path);
+
             console.log(
-              `[device-bootstrap] Enviando refreshObject: ${deviceInfo.path}`
+              `[device-bootstrap] Enviando refreshObject: ${objectName}`
             );
+
+            if (await hasPendingRefreshTask(deviceId)) {
+              console.log(
+                `[device-bootstrap] ${deviceId} ya tiene refreshObject pendiente; se omite`
+              );
+              continue;
+            }
 
             await nbi.post(
               `/devices/${encodeURIComponent(deviceId)}/tasks?connection_request`,
               {
                 name: 'refreshObject',
-                objectName: deviceInfo.path
+                objectName
               }
             );
 
