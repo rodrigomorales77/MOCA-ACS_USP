@@ -4,6 +4,7 @@ const express = require('express');
 const { nbi } = require('../config/genieacs');
 const { extractMgmtIp } = require('../lib/mgmt-ip');
 const { lastInformMs, filterDevices } = require('../lib/device-filters');
+const { normalizeManufacturer, normalizeModel, normalizeDevice } = require('../lib/device-normalizer');
 const { getDb } = require('../config/db');
 const { requireAdmin } = require('../middleware/authorize');
 const { logAction } = require('../middleware/audit');
@@ -45,6 +46,8 @@ async function buildSnapshot() {
 
     for (const device of batch) {
       // Documento liviano: lo justo para listar, filtrar y buscar.
+      // Normalizamos manufacturer/modelo en capa de presentación (spec: 3 fabricantes, 5 buckets Zhone).
+      const { manufacturer: normManufacturer, model: normModel } = normalizeDevice(device);
       devices.push({
         _id: device._id,
         _lastInform: device._lastInform,
@@ -53,12 +56,10 @@ async function buildSnapshot() {
         InternetGatewayDevice: {
           DeviceInfo: { ModelName: device.InternetGatewayDevice?.DeviceInfo?.ModelName }
         },
-        // Fallback a _ProductClass: algunos CPEs (p.ej. Zhone ZNID) no reportan
-        // ModelName en el Inform pero sí en el DeviceId del SOAP (obligatorio).
-        _model:
-          device.InternetGatewayDevice?.DeviceInfo?.ModelName?._value ||
-          device._deviceId?._ProductClass ||
-          '',
+        _manufacturer: normManufacturer,
+        // Fallback a _ProductClass + normalización a 5 buckets comerciales (2424/2424A/2424A1/2426A/2426A1)
+        // + legacy ZNID24xx* -> bucket más cercano. "Otro" cuando vacío/desconocido.
+        _model: normModel,
         _mgmtIp: extractMgmtIp(device)
       });
     }
@@ -122,6 +123,8 @@ router.get('/', async (req, res, next) => {
   try {
     const search = typeof req.query.search === 'string' ? req.query.search : '';
     const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const manufacturerFilter = typeof req.query.manufacturer === 'string' ? req.query.manufacturer.trim() : '';
+    const modelFilter = typeof req.query.model === 'string' ? req.query.model.trim() : '';
 
     const parsedLimit = parseInt(req.query.limit, 10);
     const limit = Math.min(Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 25, 200);
@@ -133,7 +136,18 @@ router.get('/', async (req, res, next) => {
     // El set de pendientes solo se consulta cuando el filtro lo necesita.
     const pendingIds = status === 'pending' ? loadPendingIds() : null;
 
-    const filtered = filterDevices(snapshot, { search, status, pendingIds, now: Date.now() });
+    let filtered = filterDevices(snapshot, { search, status, pendingIds, now: Date.now() });
+    // Filtros normalizados por fabricante/modelo (presentation-only, compara contra valores normalizados del snapshot)
+    if (manufacturerFilter) {
+      const normMan = normalizeManufacturer(manufacturerFilter);
+      filtered = filtered.filter(d => d._manufacturer === normMan);
+    }
+    if (modelFilter) {
+      filtered = filtered.filter(d => {
+        const normForDevice = normalizeModel(modelFilter, d._manufacturer);
+        return d._model === normForDevice || d._model.toLowerCase() === modelFilter.trim().toLowerCase();
+      });
+    }
 
     res.json({
       total: filtered.length,
@@ -251,27 +265,29 @@ router.get('/stats/summary', async (req, res, next) => {
             }
           }
 
-          // Fabricante y modelo
-          let manufacturer = 'Desconocido';
-          let modelName = 'Desconocido';
+          // Fabricante y modelo — normalizados a capa de presentación (spec: 3 fabricantes, 5 buckets Zhone)
+          let rawManufacturer = 'Desconocido';
+          let rawModelName = 'Desconocido';
 
           const deviceInfo = device.InternetGatewayDevice?.DeviceInfo;
           if (deviceInfo) {
-            manufacturer = paramValue(deviceInfo.Manufacturer) || 'Desconocido';
-            modelName = paramValue(deviceInfo.ModelName) || 'Desconocido';
+            rawManufacturer = paramValue(deviceInfo.Manufacturer) || 'Desconocido';
+            rawModelName = paramValue(deviceInfo.ModelName) || 'Desconocido';
           }
 
           // Fallback: algunos CPEs (p.ej. Zhone ZNID) no incluyen
           // DeviceInfo.Manufacturer/ModelName en el Inform, pero el header
           // DeviceId del SOAP (obligatorio en TR-069) siempre los trae.
-          // GenieACS lo persiste como objeto _deviceId.
           const deviceIdMeta = device._deviceId || {};
-          if (manufacturer === 'Desconocido' && deviceIdMeta._Manufacturer) {
-            manufacturer = deviceIdMeta._Manufacturer;
+          if (rawManufacturer === 'Desconocido' && deviceIdMeta._Manufacturer) {
+            rawManufacturer = deviceIdMeta._Manufacturer;
           }
-          if (modelName === 'Desconocido' && deviceIdMeta._ProductClass) {
-            modelName = deviceIdMeta._ProductClass;
+          if (rawModelName === 'Desconocido' && deviceIdMeta._ProductClass) {
+            rawModelName = deviceIdMeta._ProductClass;
           }
+
+          const manufacturer = normalizeManufacturer(rawManufacturer);
+          const modelName = normalizeModel(rawModelName, manufacturer);
 
           manufacturers.add(manufacturer);
           models.add(modelName);

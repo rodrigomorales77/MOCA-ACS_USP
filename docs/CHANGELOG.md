@@ -5,6 +5,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ## [Unreleased]
 
 ### Added
+- `backend`: `GET /api/devices/stats/summary` y listado normalizan fabricantes (Zhone/Huawei/ZTE, `HWTC→Huawei`, `ZXIC→ZTE`, `Desconocido→Otro`) y modelos Zhone a 5 buckets (2424/2424A/2424A1/2426A/2426A1) — corrige `modelCount 18→9` / `manufacturerCount 4→3` (solo presentación, sin migración DB)
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
 - `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6 + ZTE F890L (ZXIC), matriz de features, cobertura del catálogo v1 — **F2 completa**
 - `docs/PROPUESTAS_DECISIONES_ONT_GATEWAY.md`: borrador de propuestas para las decisiones abiertas del diseño (capacidades por modelo, PK `device_id`, `wan.mode` por instancias, timeout de tareas) — **Decisión 1 validada**

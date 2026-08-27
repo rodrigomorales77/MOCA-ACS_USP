@@ -240,6 +240,9 @@ producción con su perfil de mapping y su estado. Se consulta junto con el catá
 | HWTC | BM443GAX4 | 1 | — | `edge_case` |
 | ZXIC | F890L | 2 | `ZXIC_F890L_TR098` | `covered` |
 
+
+> **2026-08-27 — Normalización de inventario:** `moca-backend` ahora expone inventario normalizado (`manufacturerCount 3`, `modelCount 9`) vía `device-normalizer.js` (5 buckets Zhone + 3 Huawei + 1 ZTE). `HWTC→Huawei`, `ZXIC→ZTE`, `Desconocido→Otro` (visible solo si `count>0`). Solo presentación — GenieACS sigue con valores crudos. Ver `openspec/changes/archive/2026-08-27-normalize-device-inventory/`.
+
 ### 8.3 Casos borde (documentados, sin perfil)
 
 Dos modelos detectados en producción con **1 unidad cada uno**, fuera del alcance
