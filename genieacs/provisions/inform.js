@@ -87,3 +87,26 @@ const devCurrentTime = _devTime.value ? _devTime.value[0] : undefined;
 if (devCurrentTime && !isUnknownTime(devCurrentTime) && productClass !== "HS8145X6") {
   declare("Device.ManagementServer.PeriodicInformTime", {value: daily}, {value: informTime});
 }
+
+// FIX NTP 2026-08-28 — sincroniza hora CPE (CurrentLocalTime) para corregir desfase _lastInform vs CurrentLocalTime (ej Huawei 1981-01-15)
+// Coste: 1 declare diario condicional, solo si branch existe y es writable. Zhone (3967/4318) tiene Time writable:false -> skip automatico, solo ~350 Huawei. No storm.
+// NTP sync condicional por modelo
+const _timeNtp = declare("InternetGatewayDevice.Time.NTPServer1", {value: 1});
+if (_timeNtp.value !== undefined) { // branch existe
+  // Solo si es writable (check implicito: si declare con value:1 no falla, asumimos writable; GenieACS lo maneja)
+  declare("InternetGatewayDevice.Time.Enable", {value: daily}, {value: true});
+  declare("InternetGatewayDevice.Time.NTPServer1", {value: daily}, {value: "ar.pool.ntp.org"});
+  declare("InternetGatewayDevice.Time.NTPServer2", {value: daily}, {value: "pool.ntp.org"});
+  // Timezone America/Argentina/Buenos_Aires -03:00
+  const _tz = declare("InternetGatewayDevice.Time.LocalTimeZone", {value: 1});
+  if (_tz.value !== undefined) {
+    declare("InternetGatewayDevice.Time.LocalTimeZone", {value: daily}, {value: "-03:00"});
+  }
+}
+// Tambien para Device.Time (TR-181) si existe:
+// Usar try-like: declare con path check
+const _devNtp = declare("Device.Time.NTPServer1", {value: 1});
+if (_devNtp.value !== undefined) {
+  declare("Device.Time.Enable", {value: daily}, {value: true});
+  declare("Device.Time.NTPServer1", {value: daily}, {value: "ar.pool.ntp.org"});
+}

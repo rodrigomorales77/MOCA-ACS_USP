@@ -287,6 +287,11 @@ router.post('/:serial/reboot', (req, res, next) => {
 // POST /:serial/factory-reset
 router.post('/:serial/factory-reset', (req, res, next) => {
   try {
+    if (req.body?.confirm !== true) {
+      const err = new Error('factory-reset requiere confirm:true en body');
+      err.status = 400;
+      throw err;
+    }
     const ttlSeconds = getTtlSeconds(req);
     const deviceRow = resolveDevice(req.params.serial);
     const profile = getProfile(deviceRow.profile);

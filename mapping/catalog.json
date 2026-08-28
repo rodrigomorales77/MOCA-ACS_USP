@@ -94,13 +94,15 @@
       }
     },
     "actions": {
-      "description": "Acciones (POST)",
+      "description": "Acciones CWMP (reboot, factory_reset, resync/refresh) — disable/delete son OLT-only via telnet/SSH en sistema de gestion, no por CWMP",
+      "notes": "Operaciones canonicas CWMP: resync, reboot, factory_reset. disable/delete quedan fuera de ont-gateway (OLT-only via telnet/SSH en sistema de gestion, no por CWMP).",
       "actions": {
-        "actions.reboot": { "task": "reboot", "command_key": "gateway-reboot" },
-        "actions.factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+        "actions.reboot": { "task": "reboot", "command_key": "gateway-reboot", "description": "Reboot CWMP (Reboot RPC)" },
+        "actions.factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset", "description": "Factory reset CWMP (FactoryReset RPC) — requiere confirm:true en body" },
         "actions.ping": { "task": "diagPing", "body": "{ target }" },
         "actions.traceroute": { "task": "diagTraceRoute", "body": "{ target }" },
-        "actions.refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" }
+        "actions.refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
+        "actions.resync": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo", "description": "Alias de refresh - resync TR-069 (no optico)" }
       }
     }
   }

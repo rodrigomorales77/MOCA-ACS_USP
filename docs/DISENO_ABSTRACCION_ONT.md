@@ -137,7 +137,7 @@ ont-gateway/
   LAN (IP, DHCP, DNS).
 - **Solo lectura**: información general del equipo, estado GPON/óptico, diagnóstico
   (temperatura, CPU, memoria).
-- **Acciones**: reboot, factory reset, ping, traceroute, refresh de objetos.
+- **Acciones CWMP** (solo 3 operaciones canónicas): `reboot`, `factory_reset` (requiere `confirm:true`), `resync`/`refresh` (alias — `RefreshObject`/`GetParameterValues` TR-069 sobre `InternetGatewayDevice.DeviceInfo`, no óptico, no re-ranging PON), más diagnóstico `ping`/`traceroute`.
 - Identificación de dispositivos por serial.
 - Trazabilidad de tareas (estado, error, auditoría).
 
@@ -298,10 +298,15 @@ muestra solo los últimos 8 hex y el técnico suele copiar esos 8 — ver nota i
 | Ruta canónica | Acción | Notas |
 |---|---|---|
 | `actions.reboot` | `reboot` | requiere `command_key` |
-| `actions.factory_reset` | `factoryReset` | requiere `command_key` |
+| `actions.factory_reset` | `factoryReset` | requiere `command_key` y `confirm:true` en body (guardrail) |
 | `actions.ping` | `diagPing` | body: `{ target }` |
 | `actions.traceroute` | `diagTraceRoute` | body: `{ target }` |
-| `actions.refresh` | `refreshObject` | re-lectura acotada de `DeviceInfo` (no árbol completo) |
+| `actions.refresh` | `refreshObject` | re-lectura acotada de `DeviceInfo` (no árbol completo) — base de `resync` |
+| `actions.resync` | `refreshObject` | alias de `actions.refresh` — resync TR-069 (`GetParameterValues`/`RefreshObject` sobre `DeviceInfo`), no óptico, no re-ranging PON |
+
+> **Fuera de alcance CWMP:** `disable`/`delete` son OLT-only via telnet/SSH en sistema de gestión, no por CWMP. El `ont-gateway` expone solo 3 operaciones CWMP canónicas: `resync`/`refresh`, `reboot` y `factory_reset` (con guardrail).
+
+> Nota tecnica: FactoryReset via CWMP (FactoryReset RPC) borra configuracion persistente del CPE. Verificado 2026-08-28: ZTE F890L (ZXICCADE0F12) y Zhone ZNID24xxA1 (5a4e545303a746a0) reprovisionan automatico via OMCI tras BOOTSTRAP 14:01Z. En Huawei HS8145X6 (5A4E54533AE4E493) detras de OLT Zhone no se restaura WAN/TR-069/VoIP sin recarga manual del XML (lastInform quedo en 13:59Z post-reset, requiere intervencion); este comportamiento es especifico a topologia Huawei-detras-de-Zhone y puede no reproducirse con la misma ONU detras de OLT Huawei o ZTE con provision OMCI nativa.
 
 ### 6.3 Reglas de escritura
 
