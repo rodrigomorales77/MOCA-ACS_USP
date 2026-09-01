@@ -38,7 +38,7 @@ services:
       - GENIEACS_LOG_FILE=/dev/stdout
     ports:
       - "10.0.2.14:7547:7547"
-      - "190.92.103.227:3001:3001"
+      - "10.0.2.14:3001:3001"
       - "127.0.0.1:7557:7557"
     volumes:
       - ./data/genieacs:/opt/genieacs/ext
@@ -100,9 +100,11 @@ services:
         condition: service_healthy
     ports:
       - "190.92.103.227:80:80"
+      - "190.92.103.227:443:443"
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     networks:
       - moca-net
 
