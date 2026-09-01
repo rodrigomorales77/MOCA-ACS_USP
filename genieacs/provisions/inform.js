@@ -92,7 +92,7 @@ if (devCurrentTime && !isUnknownTime(devCurrentTime) && productClass !== "HS8145
 // Coste: 1 declare diario condicional, solo si branch existe y es writable. Zhone (3967/4318) tiene Time writable:false -> skip automatico, solo ~350 Huawei. No storm.
 // NTP sync condicional por modelo
 const _timeNtp = declare("InternetGatewayDevice.Time.NTPServer1", {value: 1});
-if (_timeNtp.value !== undefined) { // branch existe
+if (_timeNtp.value !== undefined && productClass !== "HS8145X6") { // branch existe, bypass HS8145X6 (cwmp.9002 2026-09-01, 278/h)
   // Solo si es writable (check implicito: si declare con value:1 no falla, asumimos writable; GenieACS lo maneja)
   declare("InternetGatewayDevice.Time.Enable", {value: daily}, {value: true});
   declare("InternetGatewayDevice.Time.NTPServer1", {value: daily}, {value: "ar.pool.ntp.org"});
@@ -106,7 +106,7 @@ if (_timeNtp.value !== undefined) { // branch existe
 // Tambien para Device.Time (TR-181) si existe:
 // Usar try-like: declare con path check
 const _devNtp = declare("Device.Time.NTPServer1", {value: 1});
-if (_devNtp.value !== undefined) {
+if (_devNtp.value !== undefined && productClass !== "HS8145X6") {
   declare("Device.Time.Enable", {value: daily}, {value: true});
   declare("Device.Time.NTPServer1", {value: daily}, {value: "ar.pool.ntp.org"});
 }
