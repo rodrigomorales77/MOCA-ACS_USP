@@ -211,11 +211,11 @@
       "model": "EG8041X6-10",
       "aliases": [],
       "productclasses": ["EG8041X6-10"],
-      "profile": null,
-      "status": "edge_case",
+      "profile": "HUAWEI_HS8145X6_TR098",
+      "status": "covered_family",
       "fleet_count": 1,
       "sources": [],
-      "notes": "1 unidad en flota; Huawei enterprise. Fuera de alcance F4; documentado como caso borde."
+      "notes": "Cubierto por familia Huawei (perfil HS8145X6). Validado en vivo 2026-10-06 en 5A4E5453AECF0FB8 (FW V5R024C10S117): lectura wifi/device/refresh, SSID ida+vuelta, password por PreSharedKey.1.KeyPassphrase, reboot. Sin perfil dedicado."
     },
     {
       "manufacturer": "HWTC",
