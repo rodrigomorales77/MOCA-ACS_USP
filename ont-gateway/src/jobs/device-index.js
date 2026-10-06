@@ -68,11 +68,18 @@ function detectProfile(device) {
   manufacturer = manufacturer ? String(manufacturer).trim().toUpperCase() : '';
   model = model ? String(model).trim() : '';
 
+  // ProductClass suele ser más fiel que ModelName (el FW Huawei reporta
+  // ModelName genérico de familia, ej. AG1729 en un HG8546M)
+  let productClass = '';
+  if (device._deviceId && device._deviceId._ProductClass) {
+    productClass = String(device._deviceId._ProductClass).trim().toUpperCase();
+  }
+
   // Map to known profiles
   if (manufacturer.includes('ZHONE') || manufacturer.includes('DZS') || model.toUpperCase().includes('ZNID')) {
     return { profile: 'ZHONE_TR098', manufacturer: manufacturer || 'ZHONE', model: model || 'ZNID-GPON-24xx' };
   }
-  if (model.toUpperCase().includes('HG8546M')) {
+  if (model.toUpperCase().includes('HG8546M') || productClass.includes('HG8546M')) {
     return { profile: 'HUAWEI_HG8546M_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'HG8546M' };
   }
   if (manufacturer.includes('HUAWEI') || model.toUpperCase().includes('HS8145')) {
