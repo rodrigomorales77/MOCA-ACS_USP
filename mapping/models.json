@@ -188,12 +188,12 @@
       "manufacturer": "HUAWEI",
       "model": "HG8546M",
       "aliases": ["HG8546M"],
-      "productclasses": [],
-      "profile": null,
-      "status": "pending",
-      "fleet_count": null,
+      "productclasses": ["HG8546M"],
+      "profile": "HUAWEI_HG8546M_TR098",
+      "status": "covered",
+      "fleet_count": 1,
       "sources": [],
-      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+      "notes": "Perfil dedicado creado 2026-10-06 (clon HS8145X6 sin 5G: una sola radio WLANConfiguration.1). Validado en vivo en 5A4E545305408E92 (FW V3R017C10S125): lectura, SSID, password, refresh, reboot. GPON/LAN verificados por snapshot."
     },
     {
       "manufacturer": "HUAWEI",

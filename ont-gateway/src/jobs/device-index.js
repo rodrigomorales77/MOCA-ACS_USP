@@ -72,6 +72,9 @@ function detectProfile(device) {
   if (manufacturer.includes('ZHONE') || manufacturer.includes('DZS') || model.toUpperCase().includes('ZNID')) {
     return { profile: 'ZHONE_TR098', manufacturer: manufacturer || 'ZHONE', model: model || 'ZNID-GPON-24xx' };
   }
+  if (model.toUpperCase().includes('HG8546M')) {
+    return { profile: 'HUAWEI_HG8546M_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'HG8546M' };
+  }
   if (manufacturer.includes('HUAWEI') || model.toUpperCase().includes('HS8145')) {
     return { profile: 'HUAWEI_HS8145X6_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'HS8145X6' };
   }

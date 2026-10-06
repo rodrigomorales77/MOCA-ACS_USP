@@ -1,0 +1,185 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile": "HUAWEI_HG8546M_TR098",
+  "manufacturer": "HUAWEI",
+  "model": "HG8546M",
+  "tree": "tr098",
+  "firmware_min": "V3R017C10S125",
+  "description": "Huawei HG8546M — una sola radio 2.4G (sin WLANConfiguration.5), WAN PPPoE/IPoE, óptico X_GponInterafceConfig. Clon de HS8145X6 sin 5G. Validado en vivo 2026-10-06.",
+
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": true },
+    "wifi.radio.5g": { "supported": false, "reason": "single_radio_model" },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": true },
+    "diagnostics": { "supported": true }
+  },
+
+  "params": {
+    "device.serial": {
+      "path": "InternetGatewayDevice.DeviceInfo.SerialNumber",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.manufacturer": {
+      "path": "InternetGatewayDevice.DeviceInfo.Manufacturer",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.model": {
+      "path": "InternetGatewayDevice.DeviceInfo.ModelName",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.hardware_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.HardwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.software_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.uptime": {
+      "path": "InternetGatewayDevice.DeviceInfo.UpTime",
+      "type": "int",
+      "unit": "seconds",
+      "mode": "ro"
+    },
+    "device.provisioning_code": {
+      "path": "InternetGatewayDevice.DeviceInfo.ProvisioningCode",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "wifi.radio.2g.enabled": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wifi.radio.2g.ssid": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.password": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase",
+      "type": "string",
+      "mode": "wo",
+      "transform": "wifi_passphrase"
+    },
+    "wifi.radio.2g.channel": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Channel",
+      "type": "int",
+      "mode": "rw"
+    },
+    "wifi.radio.2g.security": {
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["none", "wpa2-psk", "wpa3-psk", "wpa2-wpa3-psk"]
+    },
+
+    "wan.mode": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionType",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["pppoe", "ipoe", "bridge"],
+      "transform": "wan_mode_huawei",
+      "description": "Heradado de HS8145X6; en HG8546M la instancia activa vista es .2 IPoE — pendiente verificación por instancia (propuesta 3)"
+    },
+    "wan.pppoe.username": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wan.pppoe.password": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password",
+      "type": "string",
+      "mode": "wo"
+    },
+    "wan.vlan_id": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.X_HW_VLAN",
+      "type": "int",
+      "mode": "rw",
+      "description": "VLAN de la instancia PPPoE; pendiente verificación por instancia"
+    },
+    "wan.nat.enabled": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.NATEnabled",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wan.ip": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress",
+      "type": "string",
+      "mode": "ro",
+      "description": "IP externa de la conexión PPPoE; la activa en este equipo es IPoE (.2) — pendiente selección por instancia"
+    },
+    "wan.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionStatus",
+      "type": "enum",
+      "mode": "ro",
+      "enum": ["connected", "disconnected", "unknown"],
+      "transform": "wan_status_huawei"
+    },
+
+    "lan.ip": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress",
+      "type": "string",
+      "mode": "rw",
+      "description": "IP LAN primaria (verificada 192.168.100.1 en HG8546M)"
+    },
+    "lan.netmask": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceSubnetMask",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "gpon.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.Status",
+      "type": "string",
+      "mode": "ro"
+    },
+    "gpon.rx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia RX en dBm entero (puede ser negativo)"
+    },
+    "gpon.tx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia TX en dBm entero"
+    },
+    "diagnostics.temperature": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature",
+      "type": "float",
+      "unit": "C",
+      "mode": "ro"
+    }
+  },
+
+  "actions": {
+    "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
+    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
+    "ping": { "task": "diagPing" }
+  },
+
+  "groups": {
+    "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
+    "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status"],
+    "lan": ["lan.ip", "lan.netmask"],
+    "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
+    "diagnostics": ["diagnostics.temperature"]
+  }
+}
