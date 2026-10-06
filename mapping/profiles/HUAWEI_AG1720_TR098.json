@@ -1,0 +1,154 @@
+{
+  "$schema": "../profile.schema.json",
+  "profile": "HUAWEI_AG1720_TR098",
+  "manufacturer": "HUAWEI",
+  "model": "AG1720",
+  "tree": "tr098",
+  "firmware_min": "V3R017C10S120",
+  "description": "Huawei AG1720 — sin WiFi (sin WLANConfiguration), 2 puertos ethernet, WAN PPPoE+IPoE, óptico X_GponInterafceConfig. Validado en vivo 2026-10-06.",
+
+  "capabilities": {
+    "device": { "supported": true },
+    "wifi.radio.2g": { "supported": false, "reason": "no_wifi_model" },
+    "wifi.radio.5g": { "supported": false, "reason": "no_wifi_model" },
+    "wan": { "supported": true },
+    "lan": { "supported": true },
+    "gpon": { "supported": true },
+    "diagnostics": { "supported": true }
+  },
+
+  "params": {
+    "device.serial": {
+      "path": "InternetGatewayDevice.DeviceInfo.SerialNumber",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.manufacturer": {
+      "path": "InternetGatewayDevice.DeviceInfo.Manufacturer",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.model": {
+      "path": "InternetGatewayDevice.DeviceInfo.ModelName",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.hardware_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.HardwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.software_version": {
+      "path": "InternetGatewayDevice.DeviceInfo.SoftwareVersion",
+      "type": "string",
+      "mode": "ro"
+    },
+    "device.uptime": {
+      "path": "InternetGatewayDevice.DeviceInfo.UpTime",
+      "type": "int",
+      "unit": "seconds",
+      "mode": "ro"
+    },
+    "device.provisioning_code": {
+      "path": "InternetGatewayDevice.DeviceInfo.ProvisioningCode",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "wan.mode": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionType",
+      "type": "enum",
+      "mode": "rw",
+      "enum": ["pppoe", "ipoe", "bridge"],
+      "transform": "wan_mode_huawei",
+      "description": "Verificado PPPoE activo (.1.1 Connected, VLAN 150) + IPoE MGMT (.2.1 Connected, VLAN 10); pendiente selección por instancia (propuesta 3)"
+    },
+    "wan.pppoe.username": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username",
+      "type": "string",
+      "mode": "rw"
+    },
+    "wan.pppoe.password": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Password",
+      "type": "string",
+      "mode": "wo"
+    },
+    "wan.vlan_id": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.X_HW_VLAN",
+      "type": "int",
+      "mode": "rw"
+    },
+    "wan.nat.enabled": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.NATEnabled",
+      "type": "boolean",
+      "mode": "rw",
+      "transform": "bool_true_false_string"
+    },
+    "wan.ip": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress",
+      "type": "string",
+      "mode": "ro",
+      "description": "IP PPPoE; la MGMT vive en IPoE .2.1 — pendiente selección por instancia"
+    },
+    "wan.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ConnectionStatus",
+      "type": "enum",
+      "mode": "ro",
+      "enum": ["connected", "disconnected", "unknown"],
+      "transform": "wan_status_huawei"
+    },
+
+    "lan.ip": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress",
+      "type": "string",
+      "mode": "rw",
+      "description": "IP LAN primaria (verificada 192.168.100.1 en AG1720)"
+    },
+    "lan.netmask": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceSubnetMask",
+      "type": "string",
+      "mode": "rw"
+    },
+
+    "gpon.status": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.Status",
+      "type": "string",
+      "mode": "ro"
+    },
+    "gpon.rx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia RX en dBm entero (puede ser negativo)"
+    },
+    "gpon.tx_power": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TXPower",
+      "type": "float",
+      "unit": "dBm",
+      "mode": "ro",
+      "description": "Potencia TX en dBm entero"
+    },
+    "diagnostics.temperature": {
+      "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature",
+      "type": "float",
+      "unit": "C",
+      "mode": "ro"
+    }
+  },
+
+  "actions": {
+    "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
+    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
+    "ping": { "task": "diagPing" }
+  },
+
+  "groups": {
+    "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status"],
+    "lan": ["lan.ip", "lan.netmask"],
+    "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
+    "diagnostics": ["diagnostics.temperature"]
+  }
+}

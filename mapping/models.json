@@ -177,12 +177,12 @@
       "manufacturer": "HUAWEI",
       "model": "AG1720",
       "aliases": ["AG1720"],
-      "productclasses": [],
-      "profile": null,
-      "status": "pending",
-      "fleet_count": null,
+      "productclasses": ["AG1720"],
+      "profile": "HUAWEI_AG1720_TR098",
+      "status": "covered",
+      "fleet_count": 1,
       "sources": [],
-      "notes": "En producción según el equipo; sin plantilla exportada y sin perfil. No aparece en el snapshot NBI."
+      "notes": "Perfil dedicado creado 2026-10-06 (sin WiFi: sin WLANConfiguration; 2 puertos eth). Validado en vivo en 5A4E54539645DC88 (FW V3R017C10S120): lectura, refresh, reboot. GPON/LAN/WAN-PPP verificados por snapshot."
     },
     {
       "manufacturer": "HUAWEI",

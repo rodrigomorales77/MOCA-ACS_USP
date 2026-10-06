@@ -82,6 +82,9 @@ function detectProfile(device) {
   if (model.toUpperCase().includes('HG8546M') || productClass.includes('HG8546M')) {
     return { profile: 'HUAWEI_HG8546M_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'HG8546M' };
   }
+  if (model.toUpperCase().includes('AG1720') || productClass.includes('AG1720')) {
+    return { profile: 'HUAWEI_AG1720_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'AG1720' };
+  }
   if (manufacturer.includes('HUAWEI') || model.toUpperCase().includes('HS8145')) {
     return { profile: 'HUAWEI_HS8145X6_TR098', manufacturer: manufacturer || 'HUAWEI', model: model || 'HS8145X6' };
   }
