@@ -151,6 +151,18 @@
       "transform": "wan_status_huawei"
     },
 
+    "lan.ip": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress",
+      "type": "string",
+      "mode": "rw",
+      "description": "IP LAN primaria (verificada 192.168.100.1 en HS8145X6)"
+    },
+    "lan.netmask": {
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceSubnetMask",
+      "type": "string",
+      "mode": "rw"
+    },
+
     "gpon.status": {
       "path": "InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.Status",
       "type": "string",
@@ -190,6 +202,7 @@
     "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
     "wifi.radio.5g": ["wifi.radio.5g.enabled", "wifi.radio.5g.ssid", "wifi.radio.5g.password", "wifi.radio.5g.channel"],
     "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status"],
+    "lan": ["lan.ip", "lan.netmask"],
     "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
     "diagnostics": ["diagnostics.temperature"]
   }
