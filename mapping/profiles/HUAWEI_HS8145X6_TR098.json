@@ -67,7 +67,7 @@
       "mode": "rw"
     },
     "wifi.radio.2g.password": {
-      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey",
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase",
       "type": "string",
       "mode": "wo",
       "transform": "wifi_passphrase"
@@ -96,7 +96,7 @@
       "mode": "rw"
     },
     "wifi.radio.5g.password": {
-      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey",
+      "path": "InternetGatewayDevice.LANDevice.1.WLANConfiguration.5.PreSharedKey.1.KeyPassphrase",
       "type": "string",
       "mode": "wo",
       "transform": "wifi_passphrase"
