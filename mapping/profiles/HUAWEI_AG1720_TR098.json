@@ -139,7 +139,7 @@
 
   "actions": {
     "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
-    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
+    "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset", "warning": "PELIGRO: tras OLT Zhone pierde el XML y la ONU puede no reprovisionar sola (2026-08/10: 5 semanas offline). Solo con XML a mano." },
     "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
     "ping": { "task": "diagPing" }
   },
