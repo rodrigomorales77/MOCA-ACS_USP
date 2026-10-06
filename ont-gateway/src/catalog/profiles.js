@@ -62,6 +62,23 @@ function validateProfile(json, fileName) {
     }
   }
 
+  // Regla capabilities-vs-endpoint: ningún capabilities[g]=true sin respaldo
+  // (grupo no vacío o params de esa sección). Sin esto, GET /<grupo> cae en 422.
+  if (json.capabilities && typeof json.capabilities === 'object' && json.params && typeof json.params === 'object') {
+    const inSection = (name, g) => name === g || name.startsWith(g + '.')
+      || (g === 'wifi' && (name.startsWith('wifi.radio.2g') || name.startsWith('wifi.radio.5g')));
+    for (const [g, cap] of Object.entries(json.capabilities)) {
+      if (cap && cap.supported === true) {
+        const grp = json.groups && json.groups[g];
+        const groupOk = Array.isArray(grp) && grp.length > 0;
+        const paramsOk = Object.keys(json.params).some((k) => inSection(k, g));
+        if (!groupOk && !paramsOk) {
+          errors.push(`capabilities[${g}]=true sin respaldo (sin grupo ni params de esa sección)`);
+        }
+      }
+    }
+  }
+
   if (errors.length) {
     throw new Error(`Perfil ${fileName} inválido: ${errors.join('; ')}`);
   }
