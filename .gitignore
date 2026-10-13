@@ -30,3 +30,6 @@ docs/superpowers/
 # SDD agent cache (skill registry)
 .atl/
 nginx/certs/
+
+# ODD working docs (local + Engram, no versionar guiones/tasks)
+odd/
