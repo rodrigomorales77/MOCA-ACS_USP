@@ -10,6 +10,8 @@
 const MANUFACTURER_MAP = new Map([
   ['zhone', 'Zhone'],
   ['huawei technologies co., ltd', 'Huawei'],
+  // Truncado que reporta el FW (ej. AG1720): sin el 'Huawei' inicial.
+  ['technologies co., ltd', 'Huawei'],
   ['huawei', 'Huawei'],
   // HWTC: fabricante ZTE (OUI 702E22 = ZTE corporation, registro IEEE).
   // No confundir con Huawei: el OUI lo graba el fabricante real de la interfaz.
