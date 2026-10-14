@@ -143,6 +143,11 @@
         "object_name": {
           "type": "string",
           "description": "Nombre del objeto para refreshObject"
+        },
+        "sections": {
+          "type": "object",
+          "description": "Subtrees permitidos para refresh selectivo (?section=). Solo objetos probados por modelo; un objeto no soportado da fault 9002 en el CPE.",
+          "additionalProperties": { "type": "string" }
         }
       },
       "additionalProperties": false

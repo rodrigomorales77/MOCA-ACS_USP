@@ -62,6 +62,26 @@ function validateProfile(json, fileName) {
     }
   }
 
+  // Refresh selectivo: sections debe ser objeto con valores no vacíos.
+  // Solo objetos probados por modelo (un subtree no soportado da fault 9002 en el CPE).
+  if (json.actions && typeof json.actions === 'object' && !Array.isArray(json.actions)) {
+    const refresh = json.actions.refresh;
+    if (refresh !== undefined) {
+      if (typeof refresh !== 'object' || Array.isArray(refresh)) {
+        errors.push('actions.refresh debe ser objeto');
+      } else if (refresh.sections !== undefined) {
+        if (typeof refresh.sections !== 'object' || Array.isArray(refresh.sections)) {
+          errors.push('actions.refresh.sections debe ser objeto');
+        } else {
+          for (const [name, obj] of Object.entries(refresh.sections)) {
+            if (!/^[a-z0-9_]+$/.test(name)) errors.push(`actions.refresh.sections: nombre inválido (${name})`);
+            if (typeof obj !== 'string' || obj.trim() === '') errors.push(`actions.refresh.sections[${name}] debe ser objeto TR-069 no vacío`);
+          }
+        }
+      }
+    }
+  }
+
   // Regla capabilities-vs-endpoint: ningún capabilities[g]=true sin respaldo
   // (grupo no vacío o params de esa sección). Sin esto, GET /<grupo> cae en 422.
   if (json.capabilities && typeof json.capabilities === 'object' && json.params && typeof json.params === 'object') {

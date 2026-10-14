@@ -28,9 +28,18 @@ function buildNbiTask(taskRow) {
     return { name: def.task || (key === 'factory_reset' ? 'factoryReset' : 'reboot'), commandKey: def.command_key || def.commandKey || (key === 'reboot' ? 'gateway-reboot' : 'gateway-factory-reset') };
   }
 
-  if (action === 'refresh' || action === 'actions.refresh') {
+  if (action === 'refresh' || action === 'actions.refresh' || action.startsWith('refresh:')) {
     const def = actions.refresh || {};
-    const raw = def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo';
+    let raw = def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo';
+    if (action.startsWith('refresh:')) {
+      const section = action.slice('refresh:'.length);
+      const sections = def.sections || {};
+      // Sin mapeo en el perfil: fallar en vez de disparar refreshObject arbitrario (riesgo 9002)
+      if (typeof sections[section] !== 'string' || sections[section].trim() === '') {
+        throw new Error(`refresh: sección no soportada por el perfil (${section})`);
+      }
+      raw = sections[section];
+    }
     return { name: def.task || 'refreshObject', objectName: raw.replace(/\.$/, '') };
   }
 

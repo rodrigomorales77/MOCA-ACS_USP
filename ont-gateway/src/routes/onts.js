@@ -320,7 +320,26 @@ router.post('/:serial/refresh', (req, res, next) => {
         }
       }
     }
-    const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: 'refresh', payloadCanonical: {}, ttlSeconds, req });
+    // Refresh selectivo: ?section=<nombre> usa el subtree allowlisteado en
+    // actions.refresh.sections del perfil. Sin section = DeviceInfo (sin cambios).
+    let refreshAction = 'refresh';
+    const section = typeof req.query.section === 'string' ? req.query.section.trim() : '';
+    if (section) {
+      if (!/^[a-z0-9_]+$/.test(section)) {
+        const err = new Error('section inválida (solo [a-z0-9_])');
+        err.status = 400;
+        throw err;
+      }
+      const refreshDef = (profile.actions && profile.actions.refresh) || {};
+      const sections = refreshDef.sections || {};
+      if (typeof sections[section] !== 'string' || sections[section].trim() === '') {
+        const err = new Error(`Sección no soportada por el perfil: ${section}`);
+        err.status = 422;
+        throw err;
+      }
+      refreshAction = `refresh:${section}`;
+    }
+    const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: refreshAction, payloadCanonical: {}, ttlSeconds, req });
     res.status(202).json({ taskId });
   } catch (err) {
     next(err);
