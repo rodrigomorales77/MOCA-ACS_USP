@@ -22,6 +22,27 @@ function extractSerial(deviceId) {
   return normalizeSerial(deviceId.slice(idx + 1));
 }
 
+const OUI_VENDOR_BACKSTOP = {
+  '000271': 'ZHONE',
+  '00259E': 'HUAWEI',
+  '001146': 'ZTE',
+  '702E22': 'ZTE',
+};
+const KNOWN_VENDOR_TOKENS = ['ZHONE', 'DZS', 'HUAWEI', 'ZTE', 'ZXIC'];
+
+function ouiVendorFromDevice(device) {
+  const cands = [];
+  const meta = (device && device._deviceId) || {};
+  if (meta._OUI) cands.push(String(meta._OUI));
+  if (device && typeof device._id === 'string') cands.push(device._id.split('-')[0]);
+  if (meta._SerialNumber) cands.push(String(meta._SerialNumber).slice(0, 6));
+  for (const c of cands) {
+    const oui = String(c).trim().toUpperCase();
+    if (/^[0-9A-F]{6}$/.test(oui) && OUI_VENDOR_BACKSTOP[oui]) return OUI_VENDOR_BACKSTOP[oui];
+  }
+  return null;
+}
+
 function detectProfile(device) {
   // Try to read Manufacturer/ModelName from snapshot
   let manufacturer = null;
@@ -67,6 +88,14 @@ function detectProfile(device) {
 
   manufacturer = manufacturer ? String(manufacturer).trim().toUpperCase() : '';
   model = model ? String(model).trim() : '';
+
+  // OUI backstop: cuando manufacturer viene vacío o irreconocible (ej. 'HWTC'),
+  // el OUI decide el vendor. Mapa verificado: flota (000271=ZHONE, 00259E=HUAWEI,
+  // 001146=ZTE) + registro IEEE (702E22=ZTE corporation). Nunca pisa un manufacturer reconocido.
+  if ((!manufacturer || !KNOWN_VENDOR_TOKENS.some((t) => manufacturer.includes(t)))) {
+    const guess = ouiVendorFromDevice(device);
+    if (guess) manufacturer = guess;
+  }
 
   // ProductClass suele ser más fiel que ModelName (el FW Huawei reporta
   // ModelName genérico de familia, ej. AG1729 en un HG8546M)
@@ -266,4 +295,4 @@ function stopDeviceIndex() {
   timer = null;
 }
 
-module.exports = { startDeviceIndex, stopDeviceIndex, refreshDeviceIndex, extractSerial, normalizeSerial };
+module.exports = { startDeviceIndex, stopDeviceIndex, refreshDeviceIndex, extractSerial, normalizeSerial, detectProfile, ouiVendorFromDevice, OUI_VENDOR_BACKSTOP };
