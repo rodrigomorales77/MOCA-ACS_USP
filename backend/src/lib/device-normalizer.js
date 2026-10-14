@@ -11,7 +11,9 @@ const MANUFACTURER_MAP = new Map([
   ['zhone', 'Zhone'],
   ['huawei technologies co., ltd', 'Huawei'],
   ['huawei', 'Huawei'],
-  ['hwtc', 'Huawei'],
+  // HWTC: fabricante ZTE (OUI 702E22 = ZTE corporation, registro IEEE).
+  // No confundir con Huawei: el OUI lo graba el fabricante real de la interfaz.
+  ['hwtc', 'ZTE'],
   ['zxic', 'ZTE'],
   ['zte', 'ZTE'],
   ['desconocido', 'Otro'],
@@ -72,10 +74,13 @@ function normalizeModel(raw, normalizedManufacturer) {
     // unless it's empty. But spec says unknown -> Otro. For Huawei/ZTE we preserve raw if looks like a model code.
     // Decide: if it matches known Huawei/ZTE patterns keep, else if unknown like "UNKNOWN-9000" -> Otro.
     // Keep simple: known passthrough set, everything else -> Otro.
-    const knownHuaweiZTE = new Set(['hs8145x6', 'eg8041x6-10', 'bm443gax4', 'f890l']);
+    // Incluye HG8546M/AG1720 (perfiles dedicados gateway) y AG1729 (nombre de
+    // familia que el FW Huawei reporta como ModelName en los HG8546M; la
+    // detección fina usa ProductClass en el gateway, acá se bucketea parejo).
+    const knownHuaweiZTE = new Set(['hs8145x6', 'eg8041x6-10', 'hg8546m', 'ag1720', 'ag1729', 'bm443gax4', 'f890l']);
     if (knownHuaweiZTE.has(lower)) {
       // Return canonical casing from a map
-      const casing = { hs8145x6: 'HS8145X6', 'eg8041x6-10': 'EG8041X6-10', bm443gax4: 'BM443GAX4', f890l: 'F890L' };
+      const casing = { hs8145x6: 'HS8145X6', 'eg8041x6-10': 'EG8041X6-10', hg8546m: 'HG8546M', ag1720: 'AG1720', ag1729: 'HG8546M', bm443gax4: 'BM443GAX4', f890l: 'F890L' };
       return casing[lower];
     }
     // Unknown model for Huawei/ZTE — preserve raw? Spec says -> Otro. Follow spec:
@@ -92,8 +97,8 @@ function normalizeModel(raw, normalizedManufacturer) {
   // Exception: if normalizedManufacturer is Otro and raw is meaningful, return raw? No — keep determinism.
   // Check if raw is one of the known non-Zhone models that slipped through vendor mismatch:
   const lowerKnown = lower;
-  if (['hs8145x6', 'eg8041x6-10', 'bm443gax4', 'f890l'].includes(lowerKnown)) {
-    const casing = { hs8145x6: 'HS8145X6', 'eg8041x6-10': 'EG8041X6-10', bm443gax4: 'BM443GAX4', f890l: 'F890L' };
+  if (['hs8145x6', 'eg8041x6-10', 'hg8546m', 'ag1720', 'ag1729', 'bm443gax4', 'f890l'].includes(lowerKnown)) {
+    const casing = { hs8145x6: 'HS8145X6', 'eg8041x6-10': 'EG8041X6-10', hg8546m: 'HG8546M', ag1720: 'AG1720', ag1729: 'HG8546M', bm443gax4: 'BM443GAX4', f890l: 'F890L' };
     return casing[lowerKnown];
   }
 
