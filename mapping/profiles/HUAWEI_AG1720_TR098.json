@@ -97,6 +97,12 @@
       "enum": ["connected", "disconnected", "unknown"],
       "transform": "wan_status_huawei"
     },
+    "wan.instances": {
+      "path": "InternetGatewayDevice.WANDevice",
+      "type": "array",
+      "mode": "ro",
+      "description": "Lista solo-lectura de instancias WAN (internet + MGMT). Requiere refresh ?section=wan previo; sin snapshot poblado da empty_snapshot. Nunca habilita escritura multi-instancia."
+    },
 
     "lan.ip": {
       "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress",
@@ -140,13 +146,13 @@
   "actions": {
     "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
     "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset", "warning": "PELIGRO: tras OLT Zhone pierde el XML y la ONU puede no reprovisionar sola (2026-08/10: 5 semanas offline). Solo con XML a mano." },
-    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo", "sections": { "wan": "InternetGatewayDevice.WANDevice" } },
     "ping": { "task": "diagPing" }
   },
 
   "groups": {
     "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
-    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.ip", "wan.status", "wan.instances"],
     "lan": ["lan.ip", "lan.netmask"],
     "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
     "diagnostics": ["diagnostics.temperature"]
