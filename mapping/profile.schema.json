@@ -86,8 +86,8 @@
         },
         "type": {
           "type": "string",
-          "enum": ["string", "boolean", "int", "float", "enum", "datetime"],
-          "description": "Tipo del valor canónico"
+          "enum": ["string", "boolean", "int", "float", "enum", "datetime", "array"],
+          "description": "Tipo del valor canónico (array = lista enumerada de un subtree, ej. wan.instances)"
         },
         "mode": {
           "type": "string",

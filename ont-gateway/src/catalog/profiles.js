@@ -5,7 +5,7 @@ const path = require('path');
 
 const PROFILE_PATTERN = /^[A-Z0-9_]+_TR0(98|181)$/;
 const ALLOWED_TREES = new Set(['tr098', 'tr181']);
-const ALLOWED_TYPES = new Set(['string', 'boolean', 'int', 'float', 'enum', 'datetime']);
+const ALLOWED_TYPES = new Set(['string', 'boolean', 'int', 'float', 'enum', 'datetime', 'array']);
 const ALLOWED_MODES = new Set(['ro', 'rw', 'wo']);
 
 let cache = null; // Map<string, object>

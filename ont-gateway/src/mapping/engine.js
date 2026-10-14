@@ -101,6 +101,53 @@ function isEmptyValue(v) {
   return false;
 }
 
+// Enumera instancias WAN desde el snapshot: WANDevice.{w}.WANConnectionDevice.{c}.{PPP|IP}Connection.{s}
+// Devuelve lista [{ index, service, name, status, ip, vlan }] o [] si el subtree no está fetcheado.
+// Solo lectura: la instancia MGMT nunca se expone para escritura (wan.* siguen fijos a instancia 1).
+function buildWanInstances(snapshot, basePath, statusTransform) {
+  const root = getByPath(snapshot, basePath);
+  if (!root || typeof root !== 'object') return [];
+  const out = [];
+  const statusFn = (statusTransform && transformers[statusTransform]) || null;
+  for (const w of Object.keys(root)) {
+    if (w.startsWith('_')) continue;
+    const wcds = (root[w] && root[w].WANConnectionDevice) || {};
+    for (const c of Object.keys(wcds)) {
+      if (c.startsWith('_')) continue;
+      const cd = wcds[c] || {};
+      for (const svc of ['WANPPPConnection', 'WANIPConnection']) {
+        const conns = cd[svc] || {};
+        for (const s of Object.keys(conns)) {
+          if (s.startsWith('_')) continue;
+          const node = conns[s] || {};
+          const rawOf = (k) => {
+            const n = node[k];
+            if (n === undefined || n === null) return null;
+            if (typeof n === 'object' && '_value' in n) return n._value;
+            return (typeof n === 'object') ? null : n;
+          };
+          let status = rawOf('ConnectionStatus');
+          if (status !== null && statusFn) {
+            try {
+              const mapped = statusFn(status, 'to_canonical');
+              if (mapped !== null && mapped !== undefined) status = mapped;
+            } catch (_) { /* deja raw */ }
+          }
+          out.push({
+            index: `${w}.${c}.${s}`,
+            service: svc === 'WANPPPConnection' ? 'pppoe' : 'ipoe',
+            name: rawOf('Name'),
+            status,
+            ip: rawOf('ExternalIPAddress'),
+            vlan: rawOf('X_HW_VLAN'),
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
 async function read(group, deviceRow, nbiSnapshotOverride) {
   const profile = getProfile(deviceRow.profile);
 
@@ -241,6 +288,21 @@ async function read(group, deviceRow, nbiSnapshotOverride) {
     if (!def || (cap && cap.supported === false)) {
       const reason = (cap && cap.reason) ? cap.reason : 'model_not_capable';
       result[section][leaf] = { supported: false, value: null, reason };
+      continue;
+    }
+
+    // Params tipo array (ej. wan.instances): enumeran un subtree, no un leaf.
+    // Requieren refresh previo del subtree (ver ?section=); sin datos → empty_snapshot.
+    if (def.type === 'array') {
+      const statusDef = mappings && mappings['wan.status'];
+      const list = (section === 'wan' && leaf === 'instances')
+        ? buildWanInstances(snapshot, def.path, statusDef && statusDef.transform)
+        : null;
+      if (!list || list.length === 0) {
+        result[section][leaf] = { supported: true, value: null, reason: 'empty_snapshot' };
+      } else {
+        result[section][leaf] = { supported: true, value: list, reason: null };
+      }
       continue;
     }
 

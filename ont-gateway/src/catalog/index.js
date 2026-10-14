@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ALLOWED_TYPES = new Set(['string', 'bool', 'boolean', 'int', 'float', 'enum', 'datetime']);
+const ALLOWED_TYPES = new Set(['string', 'bool', 'boolean', 'int', 'float', 'enum', 'datetime', 'array']);
 const ALLOWED_MODES = new Set(['ro', 'rw', 'wo']);
 
 let cached = null;

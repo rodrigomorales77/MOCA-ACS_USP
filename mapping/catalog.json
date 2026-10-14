@@ -57,7 +57,8 @@
         "wan.gateway": { "type": "string", "mode": "ro" },
         "wan.dns.primary": { "type": "string", "mode": "ro" },
         "wan.dns.secondary": { "type": "string", "mode": "ro" },
-        "wan.status": { "type": "enum", "mode": "ro", "enum": ["connected", "disconnected", "unknown"] }
+        "wan.status": { "type": "enum", "mode": "ro", "enum": ["connected", "disconnected", "unknown"] },
+        "wan.instances": { "type": "array", "mode": "ro", "description": "Lista solo-lectura de instancias WAN [{index, service, name, status, ip, vlan}]. Requiere refresh ?section=wan previo." }
       }
     },
     "lan": {
