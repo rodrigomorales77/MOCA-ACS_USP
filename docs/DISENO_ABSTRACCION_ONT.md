@@ -344,8 +344,8 @@ el modelo, `429` rate limit.
 | GET | `/onts/{serial}/diagnostics` | Diagnóstico | `200` |
 | POST | `/onts/{serial}/reboot` | Reinicia el equipo | `202` |
 | POST | `/onts/{serial}/factory-reset` | Restablece fábrica | `202` |
-| POST | `/onts/{serial}/diagnostics/ping` | body `{ target }` | `202` |
-| POST | `/onts/{serial}/diagnostics/traceroute` | body `{ target }` | `202` |
+| POST | `/onts/{serial}/diagnostics/ping` | body `{ target }` — **fuera de alcance v1** (`501`; requiere discovery por modelo, va en v2) | `501` |
+| POST | `/onts/{serial}/diagnostics/traceroute` | body `{ target }` — **fuera de alcance v1** (`501`; mismo motivo, va en v2) | `501` |
 | POST | `/onts/{serial}/refresh` | Re-lectura del árbol | `202` |
 | GET | `/onts/{serial}/capabilities` | Capacidades del perfil (qué secciones soporta) | `200` |
 | GET | `/tasks?serial=&status=&page=` | Lista de tareas | `200` |

@@ -347,38 +347,26 @@ router.post('/:serial/refresh', (req, res, next) => {
 });
 
 // POST /:serial/diagnostics/ping
+// v1: fuera de alcance (el task diagPing no existe en NBI + falta state machine
+// DiagnosticsState por modelo). 501 honesto en vez de 202-que-aborta. La lógica
+// queda intacta para v2: sacar este guard para re-habilitar.
 router.post('/:serial/diagnostics/ping', (req, res, next) => {
   try {
-    const ttlSeconds = getTtlSeconds(req);
-    const deviceRow = resolveDevice(req.params.serial);
-    const profile = getProfile(deviceRow.profile);
-    const target = req.body && typeof req.body.target === 'string' ? req.body.target.trim() : null;
-    if (!target) {
-      const err = new Error('target requerido');
-      err.status = 400;
-      throw err;
-    }
-    const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: 'diagPing', payloadCanonical: { target }, ttlSeconds, req });
-    res.status(202).json({ taskId });
+    const err = new Error('Diagnostics fuera de alcance en v1 (ping pendiente de discovery por modelo)');
+    err.status = 501;
+    throw err;
   } catch (err) {
     next(err);
   }
 });
 
 // POST /:serial/diagnostics/traceroute
+// v1: fuera de alcance, mismo motivo que ping. Ver nota arriba.
 router.post('/:serial/diagnostics/traceroute', (req, res, next) => {
   try {
-    const ttlSeconds = getTtlSeconds(req);
-    const deviceRow = resolveDevice(req.params.serial);
-    const profile = getProfile(deviceRow.profile);
-    const target = req.body && typeof req.body.target === 'string' ? req.body.target.trim() : null;
-    if (!target) {
-      const err = new Error('target requerido');
-      err.status = 400;
-      throw err;
-    }
-    const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: 'diagTraceRoute', payloadCanonical: { target }, ttlSeconds, req });
-    res.status(202).json({ taskId });
+    const err = new Error('Diagnostics fuera de alcance en v1 (traceroute pendiente de discovery por modelo)');
+    err.status = 501;
+    throw err;
   } catch (err) {
     next(err);
   }
