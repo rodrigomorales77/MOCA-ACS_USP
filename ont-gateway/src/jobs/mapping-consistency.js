@@ -70,7 +70,16 @@ async function runConsistency() {
   const profiles = loadProfiles();
   const summary = [];
   for (const [name, prof] of profiles.entries()) {
-    const params = (prof && prof.params) || {};
+    const allParams = (prof && prof.params) || {};
+    // wo nunca es legible por diseño: excluirlo (sino es ruido garantizado).
+    const params = {};
+    for (const [c, def] of Object.entries(allParams)) {
+      if (def && def.mode === 'wo') {
+        console.log(`[consistency] ${name}: ${c} excluido (write-only, nunca visible en snapshot)`);
+        continue;
+      }
+      params[c] = def;
+    }
     const canonicals = Object.keys(params);
     if (canonicals.length === 0) continue;
     const rows = db.prepare(
