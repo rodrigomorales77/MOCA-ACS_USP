@@ -29,6 +29,12 @@ try {
 } catch (e) {
   console.error('[gateway] task-runner failed to start:', e.message);
 }
+try {
+  const { startStaleSweeper } = require('./src/jobs/stale-sweeper');
+  startStaleSweeper();
+} catch (e) {
+  console.error('[gateway] stale-sweeper failed to start:', e.message);
+}
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`[gateway] ont-gateway listening on ${port}`);

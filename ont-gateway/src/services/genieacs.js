@@ -94,8 +94,7 @@ async function getDevice(deviceId, projection) {
   return data[0];
 }
 
-async function createTask(deviceId, taskPayload, connectionRequest = true) {
-  const params = {};
+async function createTask(deviceId, taskPayload, connectionRequest = true) {  const params = {};
   if (connectionRequest) params.connection_request = '';
   // GenieACS NBI: POST /devices/:id/tasks?connection_request
   const path = `/devices/${encodeURIComponent(deviceId)}/tasks`;
@@ -114,4 +113,31 @@ async function createTask(deviceId, taskPayload, connectionRequest = true) {
   return handleResponse(res);
 }
 
-module.exports = { getDevices, getDevice, createTask, TIMEOUT_MS };
+/**
+ * GET /tasks?query=... (ej. {"device":"<device_id>"}) — tareas NBI encoladas.
+ */
+async function getTasks(query) {
+  const params = {};
+  if (query !== undefined && query !== null) {
+    params.query = typeof query === 'string' ? query : JSON.stringify(query);
+  }
+  const url = buildUrl('/tasks', params);
+  const res = await fetchWithTimeout(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  return handleResponse(res);
+}
+
+/**
+ * DELETE /devices/:id — baja del equipo en el ACS (tasks/faults asociados se
+ * purgan con él). Seguro: si el CPE vuelve a informar se re-registra por BOOTSTRAP.
+ * El _id puede contener '%' literal: encodeURIComponent lo preserva (% -> %25).
+ */
+async function deleteDevice(deviceId) {
+  const url = buildUrl(`/devices/${encodeURIComponent(deviceId)}`);
+  const res = await fetchWithTimeout(url, { method: 'DELETE' });
+  return handleResponse(res);
+}
+
+module.exports = { getDevices, getDevice, createTask, getTasks, deleteDevice, TIMEOUT_MS };

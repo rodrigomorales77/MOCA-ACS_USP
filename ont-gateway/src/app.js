@@ -19,6 +19,7 @@ app.use('/api/v1', apiKeyAuth, rateLimit);
 
 app.use('/api/v1/onts', require('./routes/onts'));
 app.use('/api/v1/tasks', require('./routes/tasks'));
+app.use('/api/v1/maintenance', require('./routes/maintenance'));
 
 // 404 for unknown /api/v1 routes (still behind auth)
 app.use('/api/v1', (_req, res) => res.status(404).json({ error: 'Not found' }));
