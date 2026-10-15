@@ -143,6 +143,12 @@
       "enum": ["connected", "disconnected", "unknown"],
       "transform": "wan_status_zhone"
     },
+    "wan.instances": {
+      "path": "InternetGatewayDevice.LANDevice",
+      "type": "array",
+      "mode": "ro",
+      "description": "Lista solo-lectura de uplinks WAN (uno por LANDevice.{i}, con status/IP/VLAN propios). Requiere refresh ?section=wan previo; sin snapshot poblado da empty_snapshot. Nunca habilita escritura multi-instancia."
+    },
 
     "lan.ip": {
       "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPAddress",
@@ -206,14 +212,14 @@
   "actions": {
     "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
     "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
-    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo" },
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo", "sections": { "wan": "InternetGatewayDevice.LANDevice" } },
     "ping": { "task": "diagPing" }
   },
 
   "groups": {
     "device": ["device.serial", "device.manufacturer", "device.model", "device.hardware_version", "device.software_version", "device.uptime", "device.provisioning_code"],
     "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.ssid_hidden", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
-    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.status"],
+    "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.status", "wan.instances"],
     "lan": ["lan.ip", "lan.dhcp.enabled"],
     "gpon": ["gpon.status", "gpon.loid", "gpon.rx_power", "gpon.tx_power"],
     "diagnostics": ["diagnostics.temperature", "diagnostics.cpu_usage", "diagnostics.memory_usage"]

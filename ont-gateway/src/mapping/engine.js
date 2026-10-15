@@ -148,6 +148,53 @@ function buildWanInstances(snapshot, basePath, statusTransform) {
   return out;
 }
 
+// Enumera instancias WAN estilo Zhone desde el snapshot:
+// LANDevice.{i}.LANHostConfigManagement.IPInterface.1 con leaves X_ZHONE_COM_*.
+// Cada instancia i es un uplink (PPPoE/IPoE) con su propio status. Solo lectura.
+function buildZhoneWanInstances(snapshot, basePath, statusTransform) {
+  const root = getByPath(snapshot, basePath);
+  if (!root || typeof root !== 'object') return [];
+  const out = [];
+  const statusFn = (statusTransform && transformers[statusTransform]) || null;
+  for (const i of Object.keys(root)) {
+    if (i.startsWith('_')) continue;
+    const ipif = root[i] && root[i].LANHostConfigManagement && root[i].LANHostConfigManagement.IPInterface;
+    const node = (ipif && ipif['1']) || null;
+    if (!node || typeof node !== 'object') continue;
+    const rawOf = (path) => {
+      const n = getByPath(node, path);
+      if (n === undefined || n === null) return null;
+      if (typeof n === 'object' && '_value' in n) return n._value;
+      return (typeof n === 'object') ? null : n;
+    };
+    let status = rawOf('X_ZHONE_COM_PPPoEStatus.ConnectionStatus');
+    if (status !== null && statusFn) {
+      try {
+        const mapped = statusFn(status, 'to_canonical');
+        if (mapped !== null && mapped !== undefined) status = mapped;
+      } catch (_) { /* deja raw */ }
+    }
+    const addrType = rawOf('IPInterfaceAddressingType');
+    const service = (addrType === 'PPPoE') ? 'pppoe'
+      : (typeof addrType === 'string' && addrType ? addrType.toLowerCase() : null);
+    const ifName = rawOf('X_ZHONE_COM_IfName');
+    let vlan = rawOf('X_ZHONE_COM_PPPoEConfig.VLANID');
+    if ((vlan === null || vlan === undefined || vlan === '') && typeof ifName === 'string') {
+      const m = ifName.match(/\.v(\d+)\./);
+      if (m) vlan = parseInt(m[1], 10);
+    }
+    out.push({
+      index: String(i),
+      service,
+      name: ifName,
+      status,
+      ip: rawOf('IPInterfaceIPAddress'),
+      vlan: (vlan === '' ? null : vlan),
+    });
+  }
+  return out;
+}
+
 async function read(group, deviceRow, nbiSnapshotOverride) {
   const profile = getProfile(deviceRow.profile);
 
@@ -293,11 +340,15 @@ async function read(group, deviceRow, nbiSnapshotOverride) {
 
     // Params tipo array (ej. wan.instances): enumeran un subtree, no un leaf.
     // Requieren refresh previo del subtree (ver ?section=); sin datos → empty_snapshot.
+    // Despacho por forma del path: WANConnectionDevice (Huawei) vs LANDevice (Zhone).
     if (def.type === 'array') {
       const statusDef = mappings && mappings['wan.status'];
-      const list = (section === 'wan' && leaf === 'instances')
-        ? buildWanInstances(snapshot, def.path, statusDef && statusDef.transform)
-        : null;
+      const st = statusDef && statusDef.transform;
+      let list = null;
+      if (section === 'wan' && leaf === 'instances') {
+        if (def.path.includes('WANConnectionDevice')) list = buildWanInstances(snapshot, def.path, st);
+        else if (def.path.includes('LANDevice')) list = buildZhoneWanInstances(snapshot, def.path, st);
+      }
       if (!list || list.length === 0) {
         result[section][leaf] = { supported: true, value: null, reason: 'empty_snapshot' };
       } else {
