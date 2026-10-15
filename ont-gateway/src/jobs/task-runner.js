@@ -32,13 +32,33 @@ function buildNbiTask(taskRow) {
     const def = actions.refresh || {};
     let raw = def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo';
     if (action.startsWith('refresh:')) {
-      const section = action.slice('refresh:'.length);
+      // Formas: refresh:<section> (objeto entero) o refresh:<section>:<objeto> (una instancia,
+      // generada server-side). En ambos casos el objeto debe estar allowlisteado en el perfil:
+      // nunca refreshObject arbitrario (riesgo 9002).
+      const rest = action.slice('refresh:'.length);
+      const ci = rest.indexOf(':');
+      const section = ci === -1 ? rest : rest.slice(0, ci);
       const sections = def.sections || {};
-      // Sin mapeo en el perfil: fallar en vez de disparar refreshObject arbitrario (riesgo 9002)
-      if (typeof sections[section] !== 'string' || sections[section].trim() === '') {
+      const template = sections[section];
+      if (typeof template !== 'string' || template.trim() === '') {
         throw new Error(`refresh: sección no soportada por el perfil (${section})`);
       }
-      raw = sections[section];
+      if (ci === -1) {
+        raw = template;
+      } else {
+        const object = rest.slice(ci + 1);
+        if (template.includes('{i}')) {
+          const base = template.split('{i}')[0].replace(/\.$/, '');
+          if (!object.startsWith(base + '.') || /[^A-Za-z0-9_.]/.test(object)) {
+            throw new Error(`refresh: objeto fuera de la sección (${section})`);
+          }
+          raw = object;
+        } else if (object === template) {
+          raw = template;
+        } else {
+          throw new Error(`refresh: objeto no mapeado en la sección (${section})`);
+        }
+      }
     }
     return { name: def.task || 'refreshObject', objectName: raw.replace(/\.$/, '') };
   }

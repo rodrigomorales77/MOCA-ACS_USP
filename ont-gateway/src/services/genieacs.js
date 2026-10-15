@@ -4,15 +4,23 @@ const { getEnv } = require('../config/env');
 
 const TIMEOUT_MS = 10000;
 
-async function fetchWithTimeout(url, options = {}) {
+// POST de tasks (refreshObject sobre subtrees grandes como LANDevice) puede
+// tardar ~70s en el NBI: timeout propio largo para no abortar y duplicar tasks.
+const TASK_TIMEOUT_MS = 90000;
+
+async function fetchWithTimeoutMs(url, options = {}, ms = TIMEOUT_MS) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), ms);
   try {
     const res = await fetch(url, { ...options, signal: controller.signal });
     return res;
   } finally {
     clearTimeout(timer);
   }
+}
+
+function fetchWithTimeout(url, options = {}) {
+  return fetchWithTimeoutMs(url, options, TIMEOUT_MS);
 }
 
 function buildUrl(path, params) {
@@ -94,7 +102,8 @@ async function getDevice(deviceId, projection) {
   return data[0];
 }
 
-async function createTask(deviceId, taskPayload, connectionRequest = true) {  const params = {};
+async function createTask(deviceId, taskPayload, connectionRequest = true) {
+  const params = {};
   if (connectionRequest) params.connection_request = '';
   // GenieACS NBI: POST /devices/:id/tasks?connection_request
   const path = `/devices/${encodeURIComponent(deviceId)}/tasks`;
@@ -105,11 +114,11 @@ async function createTask(deviceId, taskPayload, connectionRequest = true) {  co
   if (connectionRequest && !finalUrl.includes('connection_request')) {
     finalUrl = url + (url.includes('?') ? '&' : '?') + 'connection_request';
   }
-  const res = await fetchWithTimeout(finalUrl, {
+  const res = await fetchWithTimeoutMs(finalUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(taskPayload),
-  });
+  }, TASK_TIMEOUT_MS);
   return handleResponse(res);
 }
 
@@ -140,4 +149,4 @@ async function deleteDevice(deviceId) {
   return handleResponse(res);
 }
 
-module.exports = { getDevices, getDevice, createTask, getTasks, deleteDevice, TIMEOUT_MS };
+module.exports = { getDevices, getDevice, createTask, getTasks, deleteDevice, TIMEOUT_MS, TASK_TIMEOUT_MS };

@@ -212,7 +212,7 @@
   "actions": {
     "reboot": { "task": "reboot", "command_key": "gateway-reboot" },
     "factory_reset": { "task": "factoryReset", "command_key": "gateway-factory-reset" },
-    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo", "sections": { "wan": "InternetGatewayDevice.LANDevice" } },
+    "refresh": { "task": "refreshObject", "object_name": "InternetGatewayDevice.DeviceInfo", "sections": { "wan": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement" } },
     "ping": { "task": "diagPing" }
   },
 

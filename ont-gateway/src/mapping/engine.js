@@ -195,6 +195,26 @@ function buildZhoneWanInstances(snapshot, basePath, statusTransform) {
   return out;
 }
 
+// Resuelve los objetos concretos a refrescar para una sección.
+// Regla: si se conoce o se puede reducir, evita el subtree completo.
+// - Plantilla sin {i} → un solo objeto (comportamiento clásico).
+// - Plantilla con {i} → una entrada por instancia conocida en el snapshot.
+// - Snapshot vacío o sin instancias → fallback al padre completo (una sola vez;
+//   tras poblarse, los próximos refresh van por instancia).
+function resolveSectionObjects(profile, section, snapshot) {
+  const refreshDef = (profile && profile.actions && profile.actions.refresh) || {};
+  const sections = refreshDef.sections || {};
+  const template = sections[section];
+  if (typeof template !== 'string' || template.trim() === '') return null;
+  if (!template.includes('{i}')) return [template];
+  const parent = template.split('{i}')[0].replace(/\.$/, '');
+  const node = getByPath(snapshot || {}, parent);
+  const kids = (node && typeof node === 'object' ? Object.keys(node) : [])
+    .filter((k) => !k.startsWith('_'));
+  if (kids.length === 0) return [parent];
+  return kids.map((k) => template.replace('{i}', k));
+}
+
 async function read(group, deviceRow, nbiSnapshotOverride) {
   const profile = getProfile(deviceRow.profile);
 
@@ -472,4 +492,4 @@ async function readForDevice(serial, group) {
   return read(group, deviceRow);
 }
 
-module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical };
+module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical, buildWanInstances, buildZhoneWanInstances, resolveSectionObjects };

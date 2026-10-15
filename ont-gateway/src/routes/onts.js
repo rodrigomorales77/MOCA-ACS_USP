@@ -302,8 +302,8 @@ router.post('/:serial/factory-reset', (req, res, next) => {
   }
 });
 
-// POST /:serial/refresh
-router.post('/:serial/refresh', (req, res, next) => {
+// POST /:serial/refresh[?section=]
+router.post('/:serial/refresh', async (req, res, next) => {
   try {
     const ttlSeconds = getTtlSeconds(req);
     const deviceRow = resolveDevice(req.params.serial);
@@ -322,25 +322,50 @@ router.post('/:serial/refresh', (req, res, next) => {
     }
     // Refresh selectivo: ?section=<nombre> usa el subtree allowlisteado en
     // actions.refresh.sections del perfil. Sin section = DeviceInfo (sin cambios).
-    let refreshAction = 'refresh';
+    // Plantilla con {i}: se resuelve a un task por instancia conocida (rápidos);
+    // snapshot vacío → un solo refresh del padre completo (una vez).
     const section = typeof req.query.section === 'string' ? req.query.section.trim() : '';
-    if (section) {
-      if (!/^[a-z0-9_]+$/.test(section)) {
-        const err = new Error('section inválida (solo [a-z0-9_])');
-        err.status = 400;
-        throw err;
-      }
-      const refreshDef = (profile.actions && profile.actions.refresh) || {};
-      const sections = refreshDef.sections || {};
-      if (typeof sections[section] !== 'string' || sections[section].trim() === '') {
-        const err = new Error(`Sección no soportada por el perfil: ${section}`);
-        err.status = 422;
-        throw err;
-      }
-      refreshAction = `refresh:${section}`;
+    if (!section) {
+      const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: 'refresh', payloadCanonical: {}, ttlSeconds, req });
+      res.status(202).json({ taskId });
+      return;
     }
-    const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: refreshAction, payloadCanonical: {}, ttlSeconds, req });
-    res.status(202).json({ taskId });
+    if (!/^[a-z0-9_]+$/.test(section)) {
+      const err = new Error('section inválida (solo [a-z0-9_])');
+      err.status = 400;
+      throw err;
+    }
+    const refreshDef = (profile.actions && profile.actions.refresh) || {};
+    const sections = refreshDef.sections || {};
+    const template = sections[section];
+    if (typeof template !== 'string' || template.trim() === '') {
+      const err = new Error(`Sección no soportada por el perfil: ${section}`);
+      err.status = 422;
+      throw err;
+    }
+    if (!template.includes('{i}')) {
+      const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: `refresh:${section}`, payloadCanonical: {}, ttlSeconds, req });
+      res.status(202).json({ taskId });
+      return;
+    }
+    // Plantilla con instancia: snapshot para conocerlas (lectura Mongo, no CPE).
+    const { getDevice } = require('../services/genieacs');
+    const { resolveSectionObjects } = require('../mapping/engine');
+    const parent = template.split('{i}')[0].replace(/\.$/, '');
+    let snapshot = {};
+    try {
+      snapshot = await getDevice(deviceRow.device_id, parent);
+    } catch (e) {
+      const err = new Error(`No se pudo leer snapshot para resolver instancias: ${e.message}`);
+      err.status = e.status || 502;
+      throw err;
+    }
+    const objects = resolveSectionObjects(profile, section, snapshot) || [parent];
+    const taskIds = objects.map((objectName) => createPendingTask({
+      serial: deviceRow.serial, deviceRow, profile,
+      action: `refresh:${section}:${objectName}`, payloadCanonical: {}, ttlSeconds, req,
+    }));
+    res.status(202).json(taskIds.length === 1 ? { taskId: taskIds[0] } : { taskIds });
   } catch (err) {
     next(err);
   }
