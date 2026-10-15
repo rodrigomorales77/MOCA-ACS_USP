@@ -150,16 +150,52 @@ async function tick() {
   } catch (err) {
     console.error('[stale-sweeper] Error ciclo:', err.message);
   } finally {
+    recordRun();
     isRunning = false;
   }
 }
 
 function startStaleSweeper() {
   const { intervalMs } = getConfig();
-  console.log(`[stale-sweeper] Limpieza semanal de stale >${getConfig().days}d (cada ${Math.round(intervalMs / DAY_MS)}d, cap ${getConfig().cap})`);
-  firstTimeout = setTimeout(() => { tick(); }, 10 * 60 * 1000);
+  const firstDelayMs = computeFirstDelay(Date.now());
+  console.log(`[stale-sweeper] Limpieza stale >${getConfig().days}d (cada ${Math.round(intervalMs / DAY_MS)}d, cap ${getConfig().cap}, primer pase en ${Math.round(firstDelayMs / 60000)}min)`);
+  firstTimeout = setTimeout(() => { tick(); }, firstDelayMs);
   timer = setInterval(tick, intervalMs);
   console.log('[stale-sweeper] ✓ sweeper activo');
+}
+
+// Primer pase: 10 min post-boot SOLO si nunca corrió o el último pase es más
+// viejo que el intervalo. Sin esto, cada restart (deploy) disparaba una purga
+// extra fuera de programa.
+function computeFirstDelay(nowMs) {
+  const { intervalMs } = getConfig();
+  const minDelay = 10 * 60 * 1000;
+  try {
+    const db = getDb();
+    db.exec('CREATE TABLE IF NOT EXISTS sweeper_state (id INTEGER PRIMARY KEY CHECK(id=1), last_run TEXT)');
+    const row = db.prepare('SELECT last_run FROM sweeper_state WHERE id=1').get();
+    if (row && row.last_run) {
+      const last = new Date(row.last_run).getTime();
+      if (Number.isFinite(last)) {
+        const next = last + intervalMs - nowMs;
+        if (next > 0) return Math.max(next, minDelay);
+      }
+    }
+  } catch (e) {
+    console.error('[stale-sweeper] No se pudo leer last_run, primer pase en 10min:', e.message);
+  }
+  return minDelay;
+}
+
+function recordRun() {
+  try {
+    const db = getDb();
+    db.exec('CREATE TABLE IF NOT EXISTS sweeper_state (id INTEGER PRIMARY KEY CHECK(id=1), last_run TEXT)');
+    db.prepare(`INSERT INTO sweeper_state (id, last_run) VALUES (1, datetime('now'))
+      ON CONFLICT(id) DO UPDATE SET last_run = datetime('now')`).run();
+  } catch (e) {
+    console.error('[stale-sweeper] No se pudo guardar last_run:', e.message);
+  }
 }
 
 function stopStaleSweeper() {
@@ -169,4 +205,4 @@ function stopStaleSweeper() {
   timer = null;
 }
 
-module.exports = { startStaleSweeper, stopStaleSweeper, runSweep, listCandidates, getConfig, pruneIndex };
+module.exports = { startStaleSweeper, stopStaleSweeper, runSweep, listCandidates, getConfig, pruneIndex, computeFirstDelay };

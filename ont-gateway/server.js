@@ -35,6 +35,12 @@ try {
 } catch (e) {
   console.error('[gateway] stale-sweeper failed to start:', e.message);
 }
+try {
+  const { startConsistency } = require('./src/jobs/mapping-consistency');
+  startConsistency();
+} catch (e) {
+  console.error('[gateway] consistency failed to start:', e.message);
+}
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`[gateway] ont-gateway listening on ${port}`);
