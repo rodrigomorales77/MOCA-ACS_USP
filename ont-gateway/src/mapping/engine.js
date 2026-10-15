@@ -177,11 +177,14 @@ function buildZhoneWanInstances(snapshot, basePath, statusTransform) {
     const addrType = rawOf('IPInterfaceAddressingType');
     const service = (addrType === 'PPPoE') ? 'pppoe'
       : (typeof addrType === 'string' && addrType ? addrType.toLowerCase() : null);
-    const ifName = rawOf('X_ZHONE_COM_IfName');
+    // IfName vive en PPPoEConfig (el top-level X_ZHONE_COM_IfName no lo reporta el FW).
+    const ifName = rawOf('X_ZHONE_COM_IfName') || rawOf('X_ZHONE_COM_PPPoEConfig.IfName');
+    // VLAN: el FW no expone VLANID; se parsea de IfName (mismo criterio que wan_vlan_zhone).
     let vlan = rawOf('X_ZHONE_COM_PPPoEConfig.VLANID');
-    if ((vlan === null || vlan === undefined || vlan === '') && typeof ifName === 'string') {
-      const m = ifName.match(/\.v(\d+)\./);
-      if (m) vlan = parseInt(m[1], 10);
+    if ((vlan === null || vlan === undefined || vlan === '') && typeof ifName === 'string' && transformers.wan_vlan_zhone) {
+      try {
+        vlan = transformers.wan_vlan_zhone(ifName, 'to_canonical');
+      } catch (_) { /* queda null */ }
     }
     out.push({
       index: String(i),
@@ -366,8 +369,8 @@ async function read(group, deviceRow, nbiSnapshotOverride) {
       const st = statusDef && statusDef.transform;
       let list = null;
       if (section === 'wan' && leaf === 'instances') {
-        if (def.path.includes('WANConnectionDevice')) list = buildWanInstances(snapshot, def.path, st);
-        else if (def.path.includes('LANDevice')) list = buildZhoneWanInstances(snapshot, def.path, st);
+        if (def.path.includes('LANDevice')) list = buildZhoneWanInstances(snapshot, def.path, st);
+        else if (def.path.includes('WANDevice')) list = buildWanInstances(snapshot, def.path, st);
       }
       if (!list || list.length === 0) {
         result[section][leaf] = { supported: true, value: null, reason: 'empty_snapshot' };

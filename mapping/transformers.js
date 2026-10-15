@@ -79,6 +79,17 @@ function wan_status_zhone(value, direction) {
   return value;
 }
 
+// Zhone no expone VLANID: la VLAN vive en IfName ('ppp0.140', 'eth0.v140.ppp').
+// Solo lectura (to_device rechaza: reescribir IfName rompería la interfaz).
+function wan_vlan_zhone(value, direction) {
+  if (direction !== 'to_canonical') throw new Error('wan.vlan_id es solo lectura en Zhone');
+  if (value === null || value === undefined || value === '') return null;
+  const m = String(value).match(/(?:\.v|\.)(\d+)(?:\.|$)/);
+  if (!m) return null;
+  const vlan = parseInt(m[1], 10);
+  return Number.isFinite(vlan) ? vlan : null;
+}
+
 // ---------------------------------------------------------------------------
 // WAN — Huawei
 // ---------------------------------------------------------------------------
@@ -143,6 +154,7 @@ module.exports = {
   wifi_security_zhone,
   wan_mode_zhone,
   wan_status_zhone,
+  wan_vlan_zhone,
   wan_mode_huawei,
   wan_status_huawei,
   parse_dbm_string,

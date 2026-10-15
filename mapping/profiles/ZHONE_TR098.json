@@ -104,7 +104,7 @@
       "description": "Bridge por defecto; instancia activa detectada por ConnectionStatus"
     },
     "wan.pppoe.username": {
-      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.PPPoEUserName",
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.Username",
       "type": "string",
       "mode": "rw",
       "select": {
@@ -113,14 +113,16 @@
       }
     },
     "wan.pppoe.password": {
-      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.PPPoEPassword",
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.Password",
       "type": "string",
       "mode": "wo"
     },
     "wan.vlan_id": {
-      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.VLANID",
+      "path": "InternetGatewayDevice.LANDevice.{i}.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEConfig.IfName",
       "type": "int",
-      "mode": "rw",
+      "mode": "ro",
+      "transform": "wan_vlan_zhone",
+      "description": "VLAN parseada de IfName (ppp0.140 / eth0.v140.ppp); el FW no expone VLANID. Solo lectura: escribir IfName rompería la interfaz.",
       "select": {
         "by_status": "InternetGatewayDevice.LANDevice.*.LANHostConfigManagement.IPInterface.1.X_ZHONE_COM_PPPoEStatus.ConnectionStatus",
         "equals": "Connected"
