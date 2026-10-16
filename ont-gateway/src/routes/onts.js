@@ -346,6 +346,24 @@ router.post('/:serial/refresh', async (req, res, next) => {
     // snapshot vacío → un solo refresh del padre completo (una vez).
     const section = typeof req.query.section === 'string' ? req.query.section.trim() : '';
     if (!section) {
+      // Sin section = DeviceInfo. max_age también aplica acá (coherencia total).
+      if (maxAgeSec !== null) {
+        const { getDevice } = require('../services/genieacs');
+        const { subtreeFreshness } = require('../mapping/engine');
+        let snap = {};
+        try {
+          snap = await getDevice(deviceRow.device_id, 'InternetGatewayDevice.DeviceInfo');
+        } catch (e) {
+          const err = new Error(`No se pudo leer snapshot para max_age: ${e.message}`);
+          err.status = e.status || 502;
+          throw err;
+        }
+        const f = subtreeFreshness(snap, 'InternetGatewayDevice.DeviceInfo');
+        if (f && f.newestAgeSec <= maxAgeSec) {
+          res.status(200).json({ fresh: true, section: 'device', age_min: Math.max(0, Math.round(f.newestAgeSec / 60)) });
+          return;
+        }
+      }
       const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: 'refresh', payloadCanonical: {}, ttlSeconds, req });
       res.status(202).json({ taskId });
       return;
