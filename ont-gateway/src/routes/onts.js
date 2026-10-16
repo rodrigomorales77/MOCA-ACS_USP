@@ -205,7 +205,7 @@ async function handleRead(req, res, next, group) {
     // sección), se encola el refresh en background y se sirve lo que hay marcado
     // como stale. Nunca bloquea la lectura. Deduplica tasks pendientes.
     try {
-      const auto = await maybeAutoRefresh(deviceRow, profile, group);
+      const auto = await maybeAutoRefresh(req, deviceRow, profile, group);
       if (auto) {
         freshness.stale = true;
         freshness.refreshing = auto.taskIds.length > 0;
@@ -227,7 +227,7 @@ async function handleRead(req, res, next, group) {
 // Decide y encola auto-refresh para un grupo de lectura. Devuelve null si está
 // fresco o no aplica; si no, { taskIds }. Solo secciones allowlisteadas (o
 // DeviceInfo). Deduplica contra tasks pending existentes.
-async function maybeAutoRefresh(deviceRow, profile, group) {
+async function maybeAutoRefresh(req, deviceRow, profile, group) {
   const { getEnv } = require('../config/env');
   const { getDevice } = require('../services/genieacs');
   const { subtreeFreshness, resolveSectionObjects, sectionBasePath } = require('../mapping/engine');
