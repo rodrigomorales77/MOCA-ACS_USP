@@ -192,10 +192,18 @@ async function handleRead(req, res, next, group) {
   try {
     const deviceRow = resolveDevice(req.params.serial);
     const { data, capabilities } = await read(group, deviceRow);
+    // Frescura: el técnico sabe si lee foto reciente o vieja (cierra la "ansiedad").
+    let lastInform = deviceRow.last_inform || null;
+    let ageMin = null;
+    if (lastInform) {
+      const t = new Date(lastInform).getTime();
+      if (Number.isFinite(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
+    }
+    const freshness = { last_inform: lastInform, age_min: ageMin };
     if (group) {
-      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, data, capabilities });
+      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
     } else {
-      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, data, capabilities });
+      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
     }
   } catch (err) {
     next(err);
@@ -320,6 +328,18 @@ router.post('/:serial/refresh', async (req, res, next) => {
         }
       }
     }
+    // Refresh condicional: ?max_age=<seg> evita refrescar si el snapshot ya está fresco.
+    // Ahorra los ~40-70s del NBI cuando otro técnico (o el sweeper) ya refrescó.
+    let maxAgeSec = null;
+    if (req.query.max_age !== undefined) {
+      const v = parseInt(req.query.max_age, 10);
+      if (!Number.isFinite(v) || v <= 0 || v > 7 * 24 * 3600) {
+        const err = new Error('max_age inválido (segundos, 1..604800)');
+        err.status = 400;
+        throw err;
+      }
+      maxAgeSec = v;
+    }
     // Refresh selectivo: ?section=<nombre> usa el subtree allowlisteado en
     // actions.refresh.sections del perfil. Sin section = DeviceInfo (sin cambios).
     // Plantilla con {i}: se resuelve a un task por instancia conocida (rápidos);
@@ -344,13 +364,30 @@ router.post('/:serial/refresh', async (req, res, next) => {
       throw err;
     }
     if (!template.includes('{i}')) {
+      if (maxAgeSec !== null) {
+        const { getDevice } = require('../services/genieacs');
+        const { subtreeFreshness } = require('../mapping/engine');
+        let snap = {};
+        try {
+          snap = await getDevice(deviceRow.device_id, template);
+        } catch (e) {
+          const err = new Error(`No se pudo leer snapshot para max_age: ${e.message}`);
+          err.status = e.status || 502;
+          throw err;
+        }
+        const f = subtreeFreshness(snap, template);
+        if (f && f.newestAgeSec <= maxAgeSec) {
+          res.status(200).json({ fresh: true, section, age_min: Math.max(0, Math.round(f.newestAgeSec / 60)) });
+          return;
+        }
+      }
       const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action: `refresh:${section}`, payloadCanonical: {}, ttlSeconds, req });
       res.status(202).json({ taskId });
       return;
     }
     // Plantilla con instancia: snapshot para conocerlas (lectura Mongo, no CPE).
     const { getDevice } = require('../services/genieacs');
-    const { resolveSectionObjects } = require('../mapping/engine');
+    const { resolveSectionObjects, subtreeFreshness } = require('../mapping/engine');
     const parent = template.split('{i}')[0].replace(/\.$/, '');
     let snapshot = {};
     try {
@@ -359,6 +396,13 @@ router.post('/:serial/refresh', async (req, res, next) => {
       const err = new Error(`No se pudo leer snapshot para resolver instancias: ${e.message}`);
       err.status = e.status || 502;
       throw err;
+    }
+    if (maxAgeSec !== null) {
+      const f = subtreeFreshness(snapshot, parent);
+      if (f && f.newestAgeSec <= maxAgeSec) {
+        res.status(200).json({ fresh: true, section, age_min: Math.max(0, Math.round(f.newestAgeSec / 60)) });
+        return;
+      }
     }
     const objects = resolveSectionObjects(profile, section, snapshot) || [parent];
     const taskIds = objects.map((objectName) => createPendingTask({

@@ -495,4 +495,31 @@ async function readForDevice(serial, group) {
   return read(group, deviceRow);
 }
 
-module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical, buildWanInstances, buildZhoneWanInstances, resolveSectionObjects };
+// Frescura de un subtree: cuenta leaves con _timestamp y la edad mínima.
+// null si no hay ningún dato (snapshot vacío para esa sección).
+function subtreeFreshness(snapshot, basePath) {
+  const root = getByPath(snapshot, basePath);
+  if (!root || typeof root !== 'object') return null;
+  let count = 0;
+  let newestAgeSec = Infinity;
+  const now = Date.now();
+  const walk = (n) => {
+    if (!n || typeof n !== 'object') return;
+    if (typeof n._timestamp === 'string') {
+      const t = new Date(n._timestamp).getTime();
+      if (Number.isFinite(t)) {
+        count++;
+        const age = (now - t) / 1000;
+        if (age < newestAgeSec) newestAgeSec = age;
+      }
+    }
+    for (const k of Object.keys(n)) {
+      if (!k.startsWith('_')) walk(n[k]);
+    }
+  };
+  walk(root);
+  if (count === 0) return null;
+  return { count, newestAgeSec };
+}
+
+module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical, buildWanInstances, buildZhoneWanInstances, resolveSectionObjects, subtreeFreshness };

@@ -12,9 +12,14 @@ const { port } = getEnv();
 // Validate catalog on boot (fail-fast if invalid)
 getCatalog();
 
-// Init DB and seed keys
-initDb();
-seedApiKeys();
+// Init DB and seed keys (fail-fast con mensaje limpio si falta seed en prod)
+try {
+  initDb();
+  seedApiKeys();
+} catch (e) {
+  console.error(`[gateway] FATAL: ${e.message}`);
+  process.exit(1);
+}
 
 // Start background jobs (device index + task runner)
 try {

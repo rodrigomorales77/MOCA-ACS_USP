@@ -99,6 +99,11 @@ function seedApiKeys() {
     keyToHash = rawKey;
     keyName = process.env.GATEWAY_SEED_API_KEY_NAME || 'sistema-gestion';
   } else {
+    // Sin seed: en producción fallar cerrado (nunca key efímera en logs productivos).
+    // En desarrollo se genera una efímera para no trabar el boot.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('GATEWAY_SEED_API_KEY requerida en producción (api_keys vacía y sin seed)');
+    }
     // Dev-only: generate ephemeral key and log it once
     keyToHash = crypto.randomBytes(32).toString('hex');
     console.log('[gateway] GATEWAY_SEED_API_KEY no configurada — key de desarrollo generada:');

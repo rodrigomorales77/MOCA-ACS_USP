@@ -75,6 +75,7 @@ services:
     init: true
     env_file: .env
     environment:
+      - NODE_ENV=production
       - GATEWAY_PORT=${GATEWAY_PORT:-3001}
       - GATEWAY_DB_PATH=/app/data/gateway.db
       - GENIEACS_NBI_URL=http://moca-genieacs:7557
