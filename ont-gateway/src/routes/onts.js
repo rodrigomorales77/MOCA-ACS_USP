@@ -211,7 +211,9 @@ async function handleRead(req, res, next, group) {
         freshness.refreshing = auto.taskIds.length > 0;
         freshness.task_ids = auto.taskIds;
       }
-    } catch (_) { /* auto-refresh best-effort: jamás rompe la lectura */ }
+    } catch (e) {
+      console.error(`[gateway] auto-refresh omitido para ${deviceRow.serial}: ${e.message}`);
+    }
     if (group) {
       res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
     } else {
@@ -251,7 +253,8 @@ async function maybeAutoRefresh(deviceRow, profile, group) {
     let snap = {};
     try {
       snap = await getDevice(deviceRow.device_id, base);
-    } catch (_) {
+    } catch (e) {
+      console.error(`[gateway] auto-refresh sin snapshot para ${deviceRow.serial} (${t}): ${e.message}`);
       continue; // NBI hiccup: no bloquear lectura, reintentar próximo GET
     }
     const f = subtreeFreshness(snap, base);
