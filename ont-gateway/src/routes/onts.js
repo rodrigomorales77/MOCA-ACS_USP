@@ -191,6 +191,7 @@ router.get('/:serial/capabilities', (req, res, next) => {
 async function handleRead(req, res, next, group) {
   try {
     const deviceRow = resolveDevice(req.params.serial);
+    const profile = getProfile(deviceRow.profile);
     const { data, capabilities } = await read(group, deviceRow);
     // Frescura: el técnico sabe si lee foto reciente o vieja (cierra la "ansiedad").
     let lastInform = deviceRow.last_inform || null;
@@ -199,7 +200,18 @@ async function handleRead(req, res, next, group) {
       const t = new Date(lastInform).getTime();
       if (Number.isFinite(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
     }
-    const freshness = { last_inform: lastInform, age_min: ageMin };
+    const freshness = { last_inform: lastInform, age_min: ageMin, stale: false, refreshing: false, task_ids: [] };
+    // Auto-refresh: si la sección está más vieja que el umbral (por defecto por
+    // sección), se encola el refresh en background y se sirve lo que hay marcado
+    // como stale. Nunca bloquea la lectura. Deduplica tasks pendientes.
+    try {
+      const auto = await maybeAutoRefresh(deviceRow, profile, group);
+      if (auto) {
+        freshness.stale = true;
+        freshness.refreshing = auto.taskIds.length > 0;
+        freshness.task_ids = auto.taskIds;
+      }
+    } catch (_) { /* auto-refresh best-effort: jamás rompe la lectura */ }
     if (group) {
       res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
     } else {
@@ -208,6 +220,64 @@ async function handleRead(req, res, next, group) {
   } catch (err) {
     next(err);
   }
+}
+
+// Decide y encola auto-refresh para un grupo de lectura. Devuelve null si está
+// fresco o no aplica; si no, { taskIds }. Solo secciones allowlisteadas (o
+// DeviceInfo). Deduplica contra tasks pending existentes.
+async function maybeAutoRefresh(deviceRow, profile, group) {
+  const { getEnv } = require('../config/env');
+  const { getDevice } = require('../services/genieacs');
+  const { subtreeFreshness, resolveSectionObjects, sectionBasePath } = require('../mapping/engine');
+  const cfg = (getEnv().sectionMaxAge) || {};
+  const targets = [];
+  if (!group) {
+    targets.push('device');
+    const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
+    for (const k of Object.keys(secs)) if (k !== 'device') targets.push(k);
+  } else {
+    const secKey = group.startsWith('wifi') ? 'wifi' : group;
+    const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
+    if (secKey === 'device' || secs[secKey]) targets.push(secKey);
+    else return null; // sin allowlist no hay auto-refresh (solo manual)
+  }
+  const db = getDb();
+  const taskIds = [];
+  for (const t of targets) {
+    const maxAge = cfg[t];
+    if (!Number.isFinite(maxAge) || maxAge <= 0) continue;
+    const base = t === 'device' ? 'InternetGatewayDevice.DeviceInfo' : sectionBasePath(profile, t);
+    if (!base) continue;
+    let snap = {};
+    try {
+      snap = await getDevice(deviceRow.device_id, base);
+    } catch (_) {
+      continue; // NBI hiccup: no bloquear lectura, reintentar próximo GET
+    }
+    const f = subtreeFreshness(snap, base);
+    if (f && f.newestAgeSec <= maxAge) continue; // fresco: nada que hacer
+    const objects = (t === 'device') ? [base] : (resolveSectionObjects(profile, t, snap) || [base]);
+    for (const objectName of objects) {
+      // Objeto base (sin {i} o fallback) → refresh:<section>; instancia → refresh:<section>:<objeto>.
+      const action = (t === 'device' || objectName === base) ? (t === 'device' ? 'refresh' : `refresh:${t}`) : `refresh:${t}:${objectName}`;
+      // Dedupe: no encolar si ya hay un refresh pendiente (exacto o de la misma sección).
+      // Para 'refresh' plano se exige match exacto (no lo bloquea un refresh:wan en curso).
+      const existing = (t === 'device')
+        ? db.prepare(`SELECT id FROM tasks WHERE serial = ? COLLATE NOCASE AND status = 'pending' AND action = 'refresh' LIMIT 1`).get(deviceRow.serial)
+        : db.prepare(
+          `SELECT id FROM tasks WHERE serial = ? COLLATE NOCASE AND status = 'pending' AND (action = ? OR action LIKE ? || ':%') LIMIT 1`
+        ).get(deviceRow.serial, action, action);
+      if (existing) {
+        taskIds.push(existing.id);
+        continue;
+      }
+      const ttlSeconds = getTtlSeconds(req);
+      const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action, payloadCanonical: {}, ttlSeconds, req });
+      taskIds.push(taskId);
+    }
+  }
+  if (taskIds.length === 0) return null;
+  return { taskIds };
 }
 
 // GET /api/v1/onts/:serial  -> all sections

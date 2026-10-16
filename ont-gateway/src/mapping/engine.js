@@ -522,4 +522,25 @@ function subtreeFreshness(snapshot, basePath) {
   return { count, newestAgeSec };
 }
 
-module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical, buildWanInstances, buildZhoneWanInstances, resolveSectionObjects, subtreeFreshness };
+// Base del subtree a refrescar/leer para un grupo de lectura.
+// 'device' → DeviceInfo; secciones con allowlist → su template (padre si tiene {i});
+// resto → primer path del grupo truncado a 3 niveles (proxy). null si no hay pista.
+function sectionBasePath(profile, group) {
+  const g = group || 'device';
+  const secKey = g.startsWith('wifi') ? 'wifi' : (g.startsWith('actions.') ? g.slice(8) : g);
+  const refreshDef = (profile && profile.actions && profile.actions.refresh) || {};
+  const sections = refreshDef.sections || {};
+  if (sections[secKey]) return sections[secKey].split('{i}')[0].replace(/\.$/, '');
+  if (g === 'device') return 'InternetGatewayDevice.DeviceInfo';
+  const params = (profile && profile.params) || {};
+  for (const [canon, def] of Object.entries(params)) {
+    if (!def || typeof def.path !== 'string') continue;
+    if (canon === g || canon.startsWith(g + '.')) {
+      const parts = def.path.split('.');
+      return parts.length >= 3 ? parts.slice(0, 3).join('.') : def.path;
+    }
+  }
+  return null;
+}
+
+module.exports = { read, readForDevice, getByPath, extractRaw, detectInstance, sectionFromCanonical, buildWanInstances, buildZhoneWanInstances, resolveSectionObjects, subtreeFreshness, sectionBasePath };

@@ -32,9 +32,8 @@ function buildNbiTask(taskRow) {
     const def = actions.refresh || {};
     let raw = def.object_name || def.objectName || 'InternetGatewayDevice.DeviceInfo';
     if (action.startsWith('refresh:')) {
-      // Formas: refresh:<section> (objeto entero) o refresh:<section>:<objeto> (una instancia,
-      // generada server-side). En ambos casos el objeto debe estar allowlisteado en el perfil:
-      // nunca refreshObject arbitrario (riesgo 9002).
+      // Formas: refresh:<section> (objeto entero o padre si la plantilla tiene {i})
+      // o refresh:<section>:<objeto> (una instancia, generada server-side).
       const rest = action.slice('refresh:'.length);
       const ci = rest.indexOf(':');
       const section = ci === -1 ? rest : rest.slice(0, ci);
@@ -44,7 +43,8 @@ function buildNbiTask(taskRow) {
         throw new Error(`refresh: sección no soportada por el perfil (${section})`);
       }
       if (ci === -1) {
-        raw = template;
+        // Plantilla con {i} sin objeto resuelto: cae al padre completo (fallback documentado).
+        raw = template.includes('{i}') ? template.split('{i}')[0].replace(/\.$/, '') : template;
       } else {
         const object = rest.slice(ci + 1);
         if (template.includes('{i}')) {
