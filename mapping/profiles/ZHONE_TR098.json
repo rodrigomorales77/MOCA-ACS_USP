@@ -153,26 +153,23 @@
     },
 
     "lan.ip": {
-      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPAddress",
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.IPInterfaceIPAddress",
       "type": "string",
-      "mode": "ro"
+      "mode": "ro",
+      "description": "El FW no expone IPAddress; la IP real es IPInterfaceIPAddress (verificado en vivo)"
     },
     "lan.dhcp.enabled": {
-      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.IPInterface.1.DHCPv4.Server.Enable",
+      "path": "InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.DHCPServerEnable",
       "type": "boolean",
       "mode": "rw",
-      "transform": "bool_1_0_string"
+      "transform": "bool_true_false_string",
+      "description": "El FW no expone DHCPv4.Server.Enable; el leaf real es DHCPServerEnable xsd:boolean (verificado en vivo)"
     },
 
     "gpon.status": {
       "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.GponOperStatus",
       "type": "string",
       "mode": "ro"
-    },
-    "gpon.loid": {
-      "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.Loid",
-      "type": "string",
-      "mode": "rw"
     },
     "gpon.rx_power": {
       "path": "InternetGatewayDevice.X_ZHONE_COM_GPON.RxLevelString",
@@ -223,7 +220,7 @@
     "wifi.radio.2g": ["wifi.radio.2g.enabled", "wifi.radio.2g.ssid", "wifi.radio.2g.ssid_hidden", "wifi.radio.2g.password", "wifi.radio.2g.channel", "wifi.radio.2g.security"],
     "wan": ["wan.mode", "wan.pppoe.username", "wan.pppoe.password", "wan.vlan_id", "wan.nat.enabled", "wan.status", "wan.instances"],
     "lan": ["lan.ip", "lan.dhcp.enabled"],
-    "gpon": ["gpon.status", "gpon.loid", "gpon.rx_power", "gpon.tx_power"],
+    "gpon": ["gpon.status", "gpon.rx_power", "gpon.tx_power"],
     "diagnostics": ["diagnostics.temperature", "diagnostics.cpu_usage", "diagnostics.memory_usage"]
   }
 }
