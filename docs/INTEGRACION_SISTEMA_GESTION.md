@@ -1,11 +1,8 @@
 # Integración con el Sistema de Gestión — API `ont-gateway` (v1)
 
-**Estado:** Vigente para primera entrega (v1)
-**Fecha:** 2026-10-16
-**Audiencia:** equipo que integra el Sistema de Gestión contra el gateway. No requiere
+**Estado:** Vigente para primera entrega (v1)\
+**Audiencia:** equipo que integra el Sistema de Gestión contra el gateway. No requiere\
 conocer fabricantes, modelos, firmware ni TR-069.
-**Relacionado:** [DISENO_ABSTRACCION_ONT](./DISENO_ABSTRACCION_ONT.md) (diseño),
-[ont-gateway-test-plan](./ont-gateway-test-plan.md) (cobertura probada).
 
 > Esta guía contiene **solo** lo necesario para integrar. Detalles internos
 > (despliegue, base de datos, perfiles de mapeo, jobs de mantenimiento) quedan
@@ -187,7 +184,50 @@ Respételo: lo marcado `false` responde `422`, no es un error del sistema.
 4. [ ] Definir umbrales de frescura propios por sección (sugeridos: device 1 h, wan 4 h, gpon 1 h, wifi 24 h, lan 12 h).
 5. [ ] Acordar criterio de equipos offline (hoy: online = inform en últimos 5 min; bajas >15 d se purgan automáticamente y reaparecen solas si vuelven).
 
+## 9. Referencia rápida de consultas v1
+
+Base: `BASE=http://127.0.0.1:3001/api/v1` con `-H "X-API-Key: <key>"` en cada pedido.
+Lecturas (`GET`) responden al instante; acciones (`POST`/`PATCH`) devuelven `202 {taskId}`
+y se siguen con `GET /tasks/{id}` hasta `applied` (§4).
+
+```bash
+# ── Equipos ─────────────────────────────────────────────────────────
+GET  $BASE/onts?query=<texto>&limit=<n>              # listar / filtrar
+GET  $BASE/onts/<SERIAL>                             # datos basicos (device)
+GET  $BASE/onts/<SERIAL>/capabilities                # que soporta (leer antes de escribir)
+
+# ── Lecturas por concepto (todas traen freshness) ─────────────────
+GET  $BASE/onts/<SERIAL>/wifi                        # SSID incl. 2g/5g
+GET  $BASE/onts/<SERIAL>/wan                         # WAN + instancias internet/MGMT
+GET  $BASE/onts/<SERIAL>/lan
+GET  $BASE/onts/<SERIAL>/gpon
+GET  $BASE/onts/<SERIAL>/diagnostics                 # sensores
+
+# ── Refresco (si freshness dice stale) ────────────────────────────
+POST $BASE/onts/<SERIAL>/refresh?section=wan         # o device/gpon; max_age=<seg> opcional
+POST $BASE/onts/<SERIAL>/refresh?max_age=<seg>       # solo crea task si el dato no esta fresco
+
+# ── Acciones y escrituras (async: poll hasta applied) ────────────
+POST $BASE/onts/<SERIAL>/reboot
+POST $BASE/onts/<SERIAL>/factory-reset               # exige {"confirm": true}
+PATCH $BASE/onts/<SERIAL>/wifi -d '{"wifi.radio.2g.ssid":"NuevoNombre"}'
+PATCH $BASE/onts/<SERIAL>/wan                        # PPPoE/VLAN segun modelo
+PATCH $BASE/onts/<SERIAL>/lan                        # segun modelo
+
+# ── Seguimiento y mantenimiento ───────────────────────────────────
+GET  $BASE/tasks/<id>                                # estado de una tarea
+GET  $BASE/tasks                                     # listado
+GET  $BASE/onts/<SERIAL>/maintenance/stale           # candidatos a purga (informativo)
+```
+
+---
+
 ---
 
 *Documento vivo de v1: ante un endpoint nuevo o un cambio de alcance, se actualiza acá
 antes de avisar al integrador.*
+
+&nbsp;
+
+Atte.\
+Ing. Agustín Sánchez Ghietti.
