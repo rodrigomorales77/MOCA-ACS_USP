@@ -5,6 +5,8 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ## [Unreleased]
 
 ### Added
+- `ont-gateway`: frescura por sección en todas las lecturas (`freshness.sections` con `age_min`, `leaves`, `empty`, `stale`, `reason`) y auto-refresh en background con umbrales por sección (`GATEWAY_SECTION_MAX_AGE`): un `GET` sobre una sección vencida o nunca leída encola el refresh y responde al instante. `reason` distingue `empty_snapshot` (nunca leído), `aged`, `offline_ttl` y `nbi_error`
+- `docs/INTEGRACION_SISTEMA_GESTION.md`: guía de integración del Sistema de Gestión (conectividad, auth, modelo async, frescura/cold start, endpoints, errores)
 - `backend`: `GET /api/devices/stats/summary` y listado normalizan fabricantes (Zhone/Huawei/ZTE, `HWTC→Huawei`, `ZXIC→ZTE`, `Desconocido→Otro`) y modelos Zhone a 5 buckets (2424/2424A/2424A1/2426A/2426A1) — corrige `modelCount 18→9` / `manufacturerCount 4→3` (solo presentación, sin migración DB)
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)
 - `docs/INVENTARIO_ONT.md`: inventario de árboles TR-069 por modelo (Fase 2): 4 modelos ZNID (Zhone) + Huawei HS8145X6 + ZTE F890L (ZXIC), matriz de features, cobertura del catálogo v1 — **F2 completa**
@@ -21,6 +23,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `backend`: el listado resuelve `_model` con fallback a `_deviceId._ProductClass` (mismo criterio que `stats/summary`) para los CPEs que no reportan `DeviceInfo.ModelName`
 
 ### Fixed
+- `ont-gateway`: el auto-refresh respeta el TTL de última conexión — un equipo offline más que el TTL ya no recibe una task nueva en cada `GET` (nacía vencida y generaba churn de cola en equipos caídos); se reporta como `reason: offline_ttl`
 - `frontend`: el contador y el paginador de la lista de dispositivos mostraban solo las filas de la página (máx 25), nunca el total del conjunto filtrado — con el filtro Offline parecía que había 5 dispositivos cuando hay cientos. La API ahora responde `{total, skip, limit, devices}` y la UI muestra "1–25 de N" recorriendo el total
 - `nginx`: sin cabeceras de cache ni versionado de scripts, el navegador servía JS viejo desde su cache tras cada despliegue (la búsqueda y los filtros "no funcionaban" porque corría el código anterior). Ahora `Cache-Control: no-cache` en HTML y assets: revalidación barata con ETag/304, los deploys llegan solos al browser
 - `frontend`: el filtro Offline/Pendientes se aplicaba en el navegador sobre páginas ya recortadas de 25 — con ~93% de la flota online, "Offline" mostraba tablas casi vacías; ahora el filtro y la búsqueda son server-side y la paginación cuadra

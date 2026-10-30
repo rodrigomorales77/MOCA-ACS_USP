@@ -103,16 +103,66 @@ curl -s -H "X-API-Key: <key>" http://127.0.0.1:3001/api/v1/tasks/48
 Toda lectura trae su edad — **siempre mire `freshness` antes que el valor**:
 
 ```json
-"freshness": { "last_inform": "2026-10-16T22:14:29Z", "age_min": 1, "stale": false, "refreshing": false, "task_ids": [] }
+"freshness": {
+  "last_inform": "2026-10-16T22:14:29Z",
+  "age_min": 1,
+  "stale": false,
+  "refreshing": false,
+  "task_ids": [],
+  "sections": {
+    "wan":  { "age_min": 12,   "leaves": 8, "empty": 0, "stale": false, "reason": null },
+    "gpon": { "age_min": 8640, "leaves": 3, "empty": 0, "stale": true,  "reason": "aged" }
+  }
+}
 ```
 
-- `age_min`: minutos desde el último inform del equipo.
-- `stale: true` + `refreshing: true`: el dato estaba viejo y el gateway ya encoló el
-  refresh solo; este GET trae lo que había y el próximo vendrá fresco (`task_ids` para seguirlo).
-- **Regla de oro:** dato fresco → úselo. Dato viejo → pida `POST /refresh?section=X`
-  (o `?max_age=<seg>` para refrescar solo si hace falta: si está fresco responde
-  `200 {fresh:true}` sin crear task). Los refresh por sección disponibles hoy: `wan`
-  (Huawei y Zhone). Sin `section` refresca datos básicos del equipo.
+- `age_min` (nivel raíz): minutos desde el último inform del equipo. Es la salud del
+  enlace, **no** la edad de los datos.
+- `sections`: edad real de los datos de cada sección, leída del ACS.
+  - `age_min`: minutos desde la lectura más reciente de esa sección (`null` si nunca se leyó).
+  - `empty`: cuántos campos de la sección no tienen dato. `leaves`: cuántos se sirven.
+  - `stale`: `true` si hay que refrescar.
+  - `reason`: `null` (fresco) | `empty_snapshot` (nunca se leyó) | `aged` (más viejo que el
+    umbral) | `offline_ttl` (el equipo no informa hace más que el TTL: no se refresca solo) |
+    `nbi_error` (falla transitoria al consultar).
+- `stale` (raíz): `true` si **alguna** sección pedida está vencida. `refreshing: true` y
+  `task_ids`: el gateway ya encoló el refresh en background; seguí esas tasks y re-GETeá.
+- **Regla de oro:** dato fresco → uselo. Dato viejo → no hace falta que pida nada, el
+  gateway ya se está refrescando solo. Para forzarlo o para secciones sin refresh
+  automático: `POST /refresh?section=X` (o `?max_age=<seg>`, que solo crea la task si el
+  dato no está fresco). Los refresh por sección disponibles hoy: `wan` (Huawei y Zhone) y
+  `gpon`/`device`. Sin `section` refresca los datos básicos del equipo.
+
+### 5.1 Equipo nuevo o sin lecturas previas (cold start)
+
+TR-069 no lee solo: el ACS guarda lo que el equipo informa **más** lo que se le pidió
+leer alguna vez. Un equipo recién instalado (o al que nunca se le hizo lectura completa)
+puede tener un documento mínimo, y una lectura devuelve campos vacíos **sin que eso
+signifique que el equipo no los tenga**.
+
+Cómo lo ve en la respuesta:
+
+```json
+"wan": { "mode": { "supported": true, "value": null, "reason": "empty_snapshot" } },
+"freshness": { "stale": true, "refreshing": true, "task_ids": [412],
+               "sections": { "wan": { "age_min": null, "empty": 1, "stale": true, "reason": "empty_snapshot" } } }
+```
+
+Flujo recomendado (no hay que hacer nada especial, solo no confundirse):
+
+1. Reciba el `GET` con `value: null` + `reason: "empty_snapshot"`. **No** es "el equipo no
+   tiene el dato".
+2. Como `refreshing: true`, el refresh ya está encolado: espere `task_ids` hasta `applied`
+   (normalmente segundos si el equipo está en línea; minutos si duerme).
+3. Relea el `GET`: ahora `empty` baja a `0` y `age_min` es chico.
+
+Si el equipo está **offline más que el TTL** (default 24 h), el gateway **no** encola el
+refresh (nacería vencido) y lo reporta como `reason: "offline_ttl"`. En ese caso el dato
+llega cuando el equipo vuelva a informar: no insista con refresh en loop.
+
+> Nota de flota: el primer barrido completo puede encontrar muchos equipos así. Conviene
+> hacerlo escalonado (por lotes), no todo junto, para no saturar la cola del ACS.
+
 
 Ejemplo: WAN con instancias (internet + MGMT) en una Huawei:
 

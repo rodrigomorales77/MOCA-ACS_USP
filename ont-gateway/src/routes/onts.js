@@ -188,63 +188,102 @@ router.get('/:serial/capabilities', (req, res, next) => {
 });
 
 // Helper to handle read for group(s)
+// Edad del último inform del equipo en segundos. 0 si no hay dato (no bloquea).
+function lastInformAgeSec(deviceRow) {
+  if (!deviceRow.last_inform) return 0;
+  const t = new Date(deviceRow.last_inform).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return (Date.now() - t) / 1000;
+}
+
+// Frescura por sección a partir del snapshot que ya devolvió read().
+// No agrega llamadas NBI: solo clasifica leaves servidos y detecta documento
+// "stub" (sin datos leídos nunca) vía reason empty_snapshot.
+function freshnessFromData(data) {
+  const out = {};
+  for (const [sec, fields] of Object.entries(data || {})) {
+    const leaves = Object.values(fields || {}).filter((v) => v && typeof v === 'object' && v.supported !== false);
+    if (leaves.length === 0) continue;
+    const empty = leaves.filter((v) => v.value === null && v.reason === 'empty_snapshot').length;
+    out[sec] = {
+      age_min: null,
+      leaves: leaves.length,
+      empty,
+      stale: empty > 0,
+      reason: empty > 0 ? 'empty_snapshot' : null,
+    };
+  }
+  return out;
+}
+
+// Arma el bloque freshness de una lectura: edad del equipo, edad real por
+// sección (medida en el ACS) y auto-refresh en background si hace falta.
+async function buildFreshness(req, deviceRow, profile, group, data) {
+  const lastInform = deviceRow.last_inform || null;
+  let ageMin = null;
+  if (lastInform) {
+    const t = new Date(lastInform).getTime();
+    if (Number.isFinite(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
+  }
+  // Primero lo deducible del snapshot ya leído (detecta secciones sin datos),
+  // luego se enriquece con la edad real medida en el ACS.
+  const sections = freshnessFromData(data);
+  const freshness = { last_inform: lastInform, age_min: ageMin, stale: false, refreshing: false, task_ids: [], sections };
+  try {
+    const auto = await maybeAutoRefresh(req, deviceRow, profile, group);
+    for (const [k, v] of Object.entries(auto.sections || {})) {
+      sections[k] = Object.assign({}, sections[k] || {}, v);
+    }
+    freshness.stale = Object.values(sections).some((s) => s && s.stale);
+    freshness.refreshing = auto.taskIds.length > 0;
+    freshness.task_ids = auto.taskIds;
+  } catch (e) {
+    console.error(`[gateway] auto-refresh omitido para ${deviceRow.serial}: ${e.message}`);
+  }
+  return freshness;
+}
+
 async function handleRead(req, res, next, group) {
   try {
     const deviceRow = resolveDevice(req.params.serial);
     const profile = getProfile(deviceRow.profile);
     const { data, capabilities } = await read(group, deviceRow);
     // Frescura: el técnico sabe si lee foto reciente o vieja (cierra la "ansiedad").
-    let lastInform = deviceRow.last_inform || null;
-    let ageMin = null;
-    if (lastInform) {
-      const t = new Date(lastInform).getTime();
-      if (Number.isFinite(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
-    }
-    const freshness = { last_inform: lastInform, age_min: ageMin, stale: false, refreshing: false, task_ids: [] };
-    // Auto-refresh: si la sección está más vieja que el umbral (por defecto por
-    // sección), se encola el refresh en background y se sirve lo que hay marcado
-    // como stale. Nunca bloquea la lectura. Deduplica tasks pendientes.
-    try {
-      const auto = await maybeAutoRefresh(req, deviceRow, profile, group);
-      if (auto) {
-        freshness.stale = true;
-        freshness.refreshing = auto.taskIds.length > 0;
-        freshness.task_ids = auto.taskIds;
-      }
-    } catch (e) {
-      console.error(`[gateway] auto-refresh omitido para ${deviceRow.serial}: ${e.message}`);
-    }
-    if (group) {
-      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
-    } else {
-      res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
-    }
+    // El auto-refresh solo encola en background: nunca bloquea la lectura.
+    const freshness = await buildFreshness(req, deviceRow, profile, group, data);
+    res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities });
   } catch (err) {
     next(err);
   }
 }
 
-// Decide y encola auto-refresh para un grupo de lectura. Devuelve null si está
-// fresco o no aplica; si no, { taskIds }. Solo secciones allowlisteadas (o
-// DeviceInfo). Deduplica contra tasks pending existentes.
+// Decide y encola auto-refresh para un grupo de lectura. Devuelve
+// { taskIds, sections } — sections trae {age_min, stale, reason} por sección.
+// Solo secciones allowlisteadas (o DeviceInfo). Deduplica contra tasks pending.
 async function maybeAutoRefresh(req, deviceRow, profile, group) {
   const { getEnv } = require('../config/env');
   const { getDevice } = require('../services/genieacs');
   const { subtreeFreshness, resolveSectionObjects, sectionBasePath } = require('../mapping/engine');
   const cfg = (getEnv().sectionMaxAge) || {};
+  const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
   const targets = [];
   if (!group) {
     targets.push('device');
-    const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
     for (const k of Object.keys(secs)) if (k !== 'device') targets.push(k);
   } else {
     const secKey = group.startsWith('wifi') ? 'wifi' : group;
-    const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
     if (secKey === 'device' || secs[secKey]) targets.push(secKey);
-    else return null; // sin allowlist no hay auto-refresh (solo manual)
   }
-  const db = getDb();
   const taskIds = [];
+  const sections = {};
+  if (targets.length === 0) return { taskIds, sections };
+
+  const db = getDb();
+  const ttlSeconds = getTtlSeconds(req);
+  // Mismo guard que POST /refresh: si el equipo lleva más que el TTL sin
+  // informar, la task nacería vencida. No se encola (evita churn en caídos).
+  const offline = lastInformAgeSec(deviceRow) > ttlSeconds;
+
   for (const t of targets) {
     const maxAge = cfg[t];
     if (!Number.isFinite(maxAge) || maxAge <= 0) continue;
@@ -255,10 +294,18 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
       snap = await getDevice(deviceRow.device_id, base);
     } catch (e) {
       console.error(`[gateway] auto-refresh sin snapshot para ${deviceRow.serial} (${t}): ${e.message}`);
+      sections[t] = { age_min: null, stale: true, reason: 'nbi_error' };
       continue; // NBI hiccup: no bloquear lectura, reintentar próximo GET
     }
     const f = subtreeFreshness(snap, base);
-    if (f && f.newestAgeSec <= maxAge) continue; // fresco: nada que hacer
+    const stale = !f || f.newestAgeSec > maxAge;
+    sections[t] = {
+      age_min: f ? Math.round(f.newestAgeSec / 60) : null,
+      stale,
+      reason: !stale ? null : (offline ? 'offline_ttl' : (!f ? 'empty_snapshot' : 'aged')),
+    };
+    if (!stale) continue;
+    if (offline) continue; // nacería vencida: no encolar
     const objects = (t === 'device') ? [base] : (resolveSectionObjects(profile, t, snap) || [base]);
     for (const objectName of objects) {
       // Objeto base (sin {i} o fallback) → refresh:<section>; instancia → refresh:<section>:<objeto>.
@@ -274,13 +321,11 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
         taskIds.push(existing.id);
         continue;
       }
-      const ttlSeconds = getTtlSeconds(req);
       const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action, payloadCanonical: {}, ttlSeconds, req });
       taskIds.push(taskId);
     }
   }
-  if (taskIds.length === 0) return null;
-  return { taskIds };
+  return { taskIds, sections };
 }
 
 // GET /api/v1/onts/:serial  -> all sections
@@ -295,7 +340,8 @@ router.get('/:serial/wifi', async (req, res, next) => {
     const result2g = await read('wifi.radio.2g', deviceRow);
     const result5g = await read('wifi.radio.5g', deviceRow);
     const data = { ...result2g.data, ...result5g.data };
-    res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, data, capabilities: profile.capabilities });
+    const freshness = await buildFreshness(req, deviceRow, profile, 'wifi', data);
+    res.json({ serial: deviceRow.serial, device_id: deviceRow.device_id, profile: deviceRow.profile, freshness, data, capabilities: profile.capabilities });
   } catch (err) {
     next(err);
   }
