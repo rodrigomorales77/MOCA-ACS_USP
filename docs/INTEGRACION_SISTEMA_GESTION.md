@@ -107,31 +107,34 @@ Toda lectura trae su edad — **siempre mire `freshness` antes que el valor**:
   "last_inform": "2026-10-16T22:14:29Z",
   "age_min": 1,
   "stale": false,
+  "incomplete": false,
   "refreshing": false,
   "task_ids": [],
   "sections": {
-    "wan":  { "age_min": 12,   "leaves": 8, "empty": 0, "stale": false, "reason": null },
-    "gpon": { "age_min": 8640, "leaves": 3, "empty": 0, "stale": true,  "reason": "aged" }
+    "wan": { "age_min": 12, "leaves": 8, "empty": 0, "stale": false, "reason": null },
+    "lan": { "age_min": null, "leaves": 2, "empty": 0, "stale": false, "reason": "unmeasured" }
   }
 }
 ```
 
 - `age_min` (nivel raíz): minutos desde el último inform del equipo. Es la salud del
   enlace, **no** la edad de los datos.
-- `sections`: edad real de los datos de cada sección, leída del ACS.
-  - `age_min`: minutos desde la lectura más reciente de esa sección (`null` si nunca se leyó).
-  - `empty`: cuántos campos de la sección no tienen dato. `leaves`: cuántos se sirven.
-  - `stale`: `true` si hay que refrescar.
-  - `reason`: `null` (fresco) | `empty_snapshot` (nunca se leyó) | `aged` (más viejo que el
-    umbral) | `offline_ttl` (el equipo no informa hace más que el TTL: no se refresca solo) |
-    `nbi_error` (falla transitoria al consultar).
-- `stale` (raíz): `true` si **alguna** sección pedida está vencida. `refreshing: true` y
-  `task_ids`: el gateway ya encoló el refresh en background; seguí esas tasks y re-GETeá.
-- **Regla de oro:** dato fresco → uselo. Dato viejo → no hace falta que pida nada, el
-  gateway ya se está refrescando solo. Para forzarlo o para secciones sin refresh
-  automático: `POST /refresh?section=X` (o `?max_age=<seg>`, que solo crea la task si el
-  dato no está fresco). Los refresh por sección disponibles hoy: `wan` (Huawei y Zhone) y
-  `gpon`/`device`. Sin `section` refresca los datos básicos del equipo.
+- `stale`: el dato se va a actualizar (o no se puede). Contrato: `stale: true` ⇒ el gateway
+  ya encoló el refresh (`refreshing: true`) o explica por qué no puede (`offline_ttl`/`nbi_error`).
+- `incomplete`: falta algún dato en lo leído. No implica que se esté refrescando.
+- `sections`: detalle por sección.
+  - `age_min`: minutos desde la última lectura de esa sección (`null` si no se mide).
+  - `leaves`: cuántos campos se sirven; `empty`: cuántos no tienen dato.
+  - `reason`: `null` (fresco) | `aged` (más viejo que el umbral) | `empty_snapshot` (sin
+    dato en el ACS: nunca leído o no expuesto por el equipo) | `offline_ttl` (el equipo no
+    informa hace más que el TTL: no se refresca solo) | `nbi_error` (falla transitoria) |
+    `unmeasured` (sección sin refresh automático: la edad no se mide).
+- **Regla de oro:** `stale: false` con `age_min` medido → uselo. `stale: true` → no hace
+  falta que pida nada: ya se está refrescando (o el equipo está caído). Para forzarlo, o
+  para secciones `unmeasured`: `POST /refresh?section=X` (o `?max_age=<seg>`, que solo crea
+  la task si el dato no está fresco). Hoy `wan` tiene refresh por sección en Huawei y Zhone;
+  `device` siempre. Las demás secciones (`lan`, `wifi`, `gpon`) se sirven sin refresh
+  automático: si necesitás forzarlas, consultá disponibilidad antes de integrar.
 
 ### 5.1 Equipo nuevo o sin lecturas previas (cold start)
 
@@ -140,11 +143,11 @@ leer alguna vez. Un equipo recién instalado (o al que nunca se le hizo lectura 
 puede tener un documento mínimo, y una lectura devuelve campos vacíos **sin que eso
 signifique que el equipo no los tenga**.
 
-Cómo lo ve en la respuesta:
+Cómo lo ve en la respuesta (sección con refresh automático, ej. `wan`):
 
 ```json
 "wan": { "mode": { "supported": true, "value": null, "reason": "empty_snapshot" } },
-"freshness": { "stale": true, "refreshing": true, "task_ids": [412],
+"freshness": { "stale": true, "incomplete": true, "refreshing": true, "task_ids": [412],
                "sections": { "wan": { "age_min": null, "empty": 1, "stale": true, "reason": "empty_snapshot" } } }
 ```
 
@@ -153,8 +156,11 @@ Flujo recomendado (no hay que hacer nada especial, solo no confundirse):
 1. Reciba el `GET` con `value: null` + `reason: "empty_snapshot"`. **No** es "el equipo no
    tiene el dato".
 2. Como `refreshing: true`, el refresh ya está encolado: espere `task_ids` hasta `applied`
-   (normalmente segundos si el equipo está en línea; minutos si duerme).
-3. Relea el `GET`: ahora `empty` baja a `0` y `age_min` es chico.
+   (segundos si el equipo está en línea; minutos si duerme).
+3. Relea el `GET`: ahora `empty` baja y `age_min` es chico.
+
+Si la sección está `unmeasured`, el gateway no refresca solo: ahí `empty > 0` significa
+"sin dato y sin refresh automático disponible" → consulte antes de asumir.
 
 Si el equipo está **offline más que el TTL** (default 24 h), el gateway **no** encola el
 refresh (nacería vencido) y lo reporta como `reason: "offline_ttl"`. En ese caso el dato

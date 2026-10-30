@@ -5,7 +5,7 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ## [Unreleased]
 
 ### Added
-- `ont-gateway`: frescura por sección en todas las lecturas (`freshness.sections` con `age_min`, `leaves`, `empty`, `stale`, `reason`) y auto-refresh en background con umbrales por sección (`GATEWAY_SECTION_MAX_AGE`): un `GET` sobre una sección vencida o nunca leída encola el refresh y responde al instante. `reason` distingue `empty_snapshot` (nunca leído), `aged`, `offline_ttl` y `nbi_error`
+- `ont-gateway`: frescura por sección en todas las lecturas (`freshness.sections` con `age_min`, `leaves`, `empty`, `stale`, `reason`) y auto-refresh en background con umbrales por sección (`GATEWAY_SECTION_MAX_AGE`): un `GET` sobre una sección vencida o nunca leída encola el refresh y responde al instante. Contrato: `stale:true` ⇒ el gateway ya encoló el refresh o explica por qué no (`reason`: `aged`|`empty_snapshot`|`offline_ttl`|`nbi_error`); `unmeasured` = sección sin refresh automático; `incomplete:true` = falta dato sin implicar refresco
 - `docs/INTEGRACION_SISTEMA_GESTION.md`: guía de integración del Sistema de Gestión (conectividad, auth, modelo async, frescura/cold start, endpoints, errores)
 - `backend`: `GET /api/devices/stats/summary` y listado normalizan fabricantes (Zhone/Huawei/ZTE, `HWTC→Huawei`, `ZXIC→ZTE`, `Desconocido→Otro`) y modelos Zhone a 5 buckets (2424/2424A/2424A1/2426A/2426A1) — corrige `modelCount 18→9` / `manufacturerCount 4→3` (solo presentación, sin migración DB)
 - `docs/DISENO_ABSTRACCION_ONT.md`: diseño de la capa de abstracción ONT (`ont-gateway`) aprobado (Fase 1)

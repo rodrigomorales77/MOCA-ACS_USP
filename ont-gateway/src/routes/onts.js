@@ -197,8 +197,9 @@ function lastInformAgeSec(deviceRow) {
 }
 
 // Frescura por sección a partir del snapshot que ya devolvió read().
-// No agrega llamadas NBI: solo clasifica leaves servidos y detecta documento
-// "stub" (sin datos leídos nunca) vía reason empty_snapshot.
+// No agrega llamadas NBI: solo clasifica leaves servidos. Las secciones sin
+// refresh automático no pueden medirse acá (sin timestamps) → 'unmeasured';
+// ahí `empty` dice si falta dato, pero no se marca stale (nadie lo refresca).
 function freshnessFromData(data) {
   const out = {};
   for (const [sec, fields] of Object.entries(data || {})) {
@@ -209,8 +210,8 @@ function freshnessFromData(data) {
       age_min: null,
       leaves: leaves.length,
       empty,
-      stale: empty > 0,
-      reason: empty > 0 ? 'empty_snapshot' : null,
+      stale: false,
+      reason: 'unmeasured',
     };
   }
   return out;
@@ -218,6 +219,8 @@ function freshnessFromData(data) {
 
 // Arma el bloque freshness de una lectura: edad del equipo, edad real por
 // sección (medida en el ACS) y auto-refresh en background si hace falta.
+// Contrato: `stale:true` ⇒ el gateway ya encoló el refresh o explica por qué no
+// (`offline_ttl`/`nbi_error`). `incomplete:true` ⇒ falta algún dato.
 async function buildFreshness(req, deviceRow, profile, group, data) {
   const lastInform = deviceRow.last_inform || null;
   let ageMin = null;
@@ -225,16 +228,27 @@ async function buildFreshness(req, deviceRow, profile, group, data) {
     const t = new Date(lastInform).getTime();
     if (Number.isFinite(t)) ageMin = Math.max(0, Math.round((Date.now() - t) / 60000));
   }
-  // Primero lo deducible del snapshot ya leído (detecta secciones sin datos),
-  // luego se enriquece con la edad real medida en el ACS.
   const sections = freshnessFromData(data);
-  const freshness = { last_inform: lastInform, age_min: ageMin, stale: false, refreshing: false, task_ids: [], sections };
+  const freshness = {
+    last_inform: lastInform,
+    age_min: ageMin,
+    stale: false,
+    incomplete: Object.values(sections).some((s) => s && s.empty > 0),
+    refreshing: false,
+    task_ids: [],
+    sections,
+  };
   try {
     const auto = await maybeAutoRefresh(req, deviceRow, profile, group);
     for (const [k, v] of Object.entries(auto.sections || {})) {
-      sections[k] = Object.assign({}, sections[k] || {}, v);
+      // 'wifi' agrupa los radios: aplicar a las secciones tal como se sirven.
+      const targets = (k === 'wifi' && !sections.wifi)
+        ? Object.keys(sections).filter((s) => s.startsWith('wifi'))
+        : [k];
+      for (const t of targets) sections[t] = Object.assign({}, sections[t] || {}, v);
     }
     freshness.stale = Object.values(sections).some((s) => s && s.stale);
+    freshness.incomplete = Object.values(sections).some((s) => s && s.empty > 0);
     freshness.refreshing = auto.taskIds.length > 0;
     freshness.task_ids = auto.taskIds;
   } catch (e) {
