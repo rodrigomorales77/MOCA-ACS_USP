@@ -29,6 +29,23 @@ Plan de desarrollo y mejoras futuras para el sistema MOCA TR-069 ACS.
 - [x] Error handling mejorado en usuarios.js (v1.5.1)
 - [ ] Logging estructurado (Pino) para debugging
 
+### ont-gateway — huecos de mapping detectados (2026-10-16)
+
+Detectados con la frescura por sección (`freshness.sections`): quedan `empty` **con el
+subtree ya refrescado**, o sea que el parámetro no existe en ese modelo/firmware o está
+mapeado a una ruta que no corresponde. No bloquean la integración v1 (responden
+`value:null` + `reason:"empty_snapshot"`), pero completan la cobertura.
+
+- [ ] `device.provisioning_code` — vacío en `HUAWEI_HS8145X6_TR098` con DeviceInfo fresco
+- [ ] `wifi.radio.2g.security` — vacío en `HUAWEI_HS8145X6_TR098` con `WLANConfiguration` fresco (posible ruta distinta a `PreSharedKey`)
+- [ ] `wifi.radio.5g.enabled` / `wifi.radio.5g.channel` — vacíos en `HUAWEI_HS8145X6_TR098` (revisar si la radio 5G usa otra instancia de `WLANConfiguration`)
+- [ ] Revisar candidatos del job `mapping-consistency` (`GET /maintenance/mapping-consistency`) para el resto de la flota
+
+Nota: en Zhone 2424/2424A1 `wifi.radio.2g` viene `supported:true` por feature-detect pero
+el subtree está vacío en los equipos sin radio. Si se confirma, conviene marcar
+`wifi.radio.2g` como `supported:false` en los modelos sin wifi para que el gateway no
+intente refrescar un objeto inexistente.
+
 ---
 
 ## 🔧 Mediano Plazo (1-2 meses)
