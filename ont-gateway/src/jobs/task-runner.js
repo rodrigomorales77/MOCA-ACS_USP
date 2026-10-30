@@ -2,6 +2,7 @@
 
 const { getDb } = require('../config/db');
 const { getProfile } = require('../catalog/profiles');
+const { getEnv } = require('../config/env');
 const transformers = require('../../../mapping/transformers');
 
 const INTERVAL_MS = 60 * 1000;
@@ -139,20 +140,30 @@ async function tick() {
       console.error('[task-runner] Error expirando tareas:', e.message);
     }
 
-    const pending = db.prepare(`SELECT * FROM tasks WHERE status='pending' AND datetime('now') < expires_at ORDER BY created_at ASC`).all();
+    const { taskBatchSize, taskTickBudgetMs } = getEnv();
+    const total = db.prepare(`SELECT COUNT(*) c FROM tasks WHERE status='pending' AND datetime('now') < expires_at`).get().c;
+    // Lote acotado por ciclo: un barrido de flota puede encolar miles de tasks y
+    // no queremos martillar el NBI en un solo ciclo ni bloquear el proceso.
+    const pending = db.prepare(`SELECT * FROM tasks WHERE status='pending' AND datetime('now') < expires_at ORDER BY created_at ASC LIMIT ?`).all(taskBatchSize);
 
     if (pending.length === 0) return;
 
-    console.log(`[task-runner] Procesando ${pending.length} tarea(s) pending`);
+    console.log(`[task-runner] Procesando ${pending.length} de ${total} tarea(s) pending (lote ${taskBatchSize})`);
 
     const { createTask } = require('../services/genieacs');
+    const startedAt = Date.now();
+    let processed = 0;
 
     for (const task of pending) {
+      if (Date.now() - startedAt > taskTickBudgetMs) {
+        console.warn(`[task-runner] Presupuesto de ${taskTickBudgetMs}ms agotado; quedan ${total - processed} pendientes para el próximo ciclo`);
+        break;
+      }
       // max_attempts check for reboot/factoryReset
       const isDestructive = task.action === 'reboot' || task.action === 'factoryReset' || task.action === 'factory_reset' || task.action === 'actions.reboot' || task.action === 'actions.factory_reset';
       let maxAttempts = task.max_attempts;
       if (isDestructive && (maxAttempts === null || maxAttempts === undefined)) maxAttempts = 3;
-      if (isDestructive && maxAttempts !== null && task.attempt_count >= maxAttempts) {
+      if (maxAttempts !== null && maxAttempts !== undefined && task.attempt_count >= maxAttempts) {
         db.prepare(`UPDATE tasks SET status='failed', error='max_attempts' WHERE id=?`).run(task.id);
         console.warn(`[task-runner] Tarea ${task.id} failed por max_attempts`);
         continue;
@@ -179,12 +190,13 @@ async function tick() {
       try {
         await createTask(updated.device_id, nbiPayload, true);
         db.prepare(`UPDATE tasks SET status='applied', applied_at=datetime('now'), result=? WHERE id=?`).run(JSON.stringify({ nbiPayload }), task.id);
+        processed++;
         console.log(`[task-runner] Tarea ${task.id} applied -> ${updated.device_id}`);
       } catch (err) {
         const msg = (err.message || 'nbi_error').slice(0, 500);
         // Si es destructiva y ya alcanzó max_attempts tras este intento -> failed
         const currentAttempts = updated.attempt_count;
-        if (isDestructive && maxAttempts !== null && currentAttempts >= maxAttempts) {
+        if (maxAttempts !== null && maxAttempts !== undefined && currentAttempts >= maxAttempts) {
           db.prepare(`UPDATE tasks SET status='failed', error=? WHERE id=?`).run('max_attempts:' + msg, task.id);
           console.warn(`[task-runner] Tarea ${task.id} failed max_attempts tras fault: ${msg}`);
         } else {

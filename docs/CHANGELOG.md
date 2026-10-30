@@ -5,6 +5,8 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 ## [Unreleased]
 
 ### Added
+- `mapping/profiles`: `actions.refresh.sections` amplía cobertura — Huawei (`HS8145X6`, `HG8546M`, `AG1720`): `lan`, `wifi`, `gpon` además de `wan`; Zhone: `wifi`, `gpon`. Antes una sección nunca leída en esos modelos quedaba vacía para siempre (no había forma de refrescarla ni automática ni manualmente)
+- `ont-gateway`: control de carga del task-runner (`GATEWAY_TASK_BATCH_SIZE` default 60, `GATEWAY_TASK_TICK_BUDGET_MS` default 45 s) y tope de refrescos automáticos por request (`GATEWAY_AUTOREFRESH_MAX_PER_CALL` default 2): un barrido de flota drena por lotes acotados en vez de procesar miles de tasks en un solo ciclo
 - `ont-gateway`: frescura por sección en todas las lecturas (`freshness.sections` con `age_min`, `leaves`, `empty`, `stale`, `reason`) y auto-refresh en background con umbrales por sección (`GATEWAY_SECTION_MAX_AGE`): un `GET` sobre una sección vencida o nunca leída encola el refresh y responde al instante. Contrato: `stale:true` ⇒ el gateway ya encoló el refresh o explica por qué no (`reason`: `aged`|`empty_snapshot`|`offline_ttl`|`nbi_error`); `unmeasured` = sección sin refresh automático; `incomplete:true` = falta dato sin implicar refresco
 - `docs/INTEGRACION_SISTEMA_GESTION.md`: guía de integración del Sistema de Gestión (conectividad, auth, modelo async, frescura/cold start, endpoints, errores)
 - `backend`: `GET /api/devices/stats/summary` y listado normalizan fabricantes (Zhone/Huawei/ZTE, `HWTC→Huawei`, `ZXIC→ZTE`, `Desconocido→Otro`) y modelos Zhone a 5 buckets (2424/2424A/2424A1/2426A/2426A1) — corrige `modelCount 18→9` / `manufacturerCount 4→3` (solo presentación, sin migración DB)
@@ -23,6 +25,8 @@ Todos los cambios importantes de este proyecto se documentan acá siguiendo [Kee
 - `backend`: el listado resuelve `_model` con fallback a `_deviceId._ProductClass` (mismo criterio que `stats/summary`) para los CPEs que no reportan `DeviceInfo.ModelName`
 
 ### Fixed
+- `ont-gateway`: las tasks de refresh ahora tienen tope de 3 intentos — un objeto inexistente en el CPE (fault 9002/9005) ya no reintenta cada 60 s hasta el TTL
+- `ont-gateway`: el auto-refresh saltea secciones que el modelo no soporta (`capabilities[].supported: false`), evitando faults por refrescar objetos inexistentes
 - `ont-gateway`: el auto-refresh respeta el TTL de última conexión — un equipo offline más que el TTL ya no recibe una task nueva en cada `GET` (nacía vencida y generaba churn de cola en equipos caídos); se reporta como `reason: offline_ttl`
 - `frontend`: el contador y el paginador de la lista de dispositivos mostraban solo las filas de la página (máx 25), nunca el total del conjunto filtrado — con el filtro Offline parecía que había 5 dispositivos cuando hay cientos. La API ahora responde `{total, skip, limit, devices}` y la UI muestra "1–25 de N" recorriendo el total
 - `nginx`: sin cabeceras de cache ni versionado de scripts, el navegador servía JS viejo desde su cache tras cada despliegue (la búsqueda y los filtros "no funcionaban" porque corría el código anterior). Ahora `Cache-Control: no-cache` en HTML y assets: revalidación barata con ETag/304, los deploys llegan solos al browser

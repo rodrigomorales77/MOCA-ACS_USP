@@ -128,7 +128,12 @@ function validateAndTransformBody(body, profile, allowedPrefixes, catalogSet) {
 function createPendingTask({ serial, deviceRow, profile, action, payloadCanonical, ttlSeconds, req }) {
   const db = getDb();
   const expiresExpr = buildExpiresAt(ttlSeconds);
-  const maxAttempts = (action === 'reboot' || action === 'factoryReset' || action === 'factory_reset') ? 3 : null;
+  // Acciones con tope de intentos: las destructivas (3) y los refresh (3).
+  // Sin tope, un refresh que el CPE rechaza (objeto inexistente) reintentaría
+  // cada ciclo hasta el TTL.
+  const isDestructive = (action === 'reboot' || action === 'factoryReset' || action === 'factory_reset');
+  const isRefresh = (action === 'refresh' || action === 'actions.refresh' || action.startsWith('refresh:'));
+  const maxAttempts = (isDestructive || isRefresh) ? 3 : null;
   const apiKeyId = req.apiKey ? req.apiKey.id : null;
   const payloadStr = payloadCanonical ? JSON.stringify(payloadCanonical) : null;
   // Use SQLite datetime expression via SQL, but need to compute expires_at in JS for return? Use SQL expression directly.
@@ -278,8 +283,21 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
   const { getEnv } = require('../config/env');
   const { getDevice } = require('../services/genieacs');
   const { subtreeFreshness, resolveSectionObjects, sectionBasePath } = require('../mapping/engine');
-  const cfg = (getEnv().sectionMaxAge) || {};
+  const env = getEnv();
+  const cfg = env.sectionMaxAge || {};
+  const maxPerCall = env.autoRefreshMaxPerCall || 2;
   const secs = ((profile.actions && profile.actions.refresh) || {}).sections || {};
+  // Una sección que el equipo no expone no se refresca: el CPE devolvería fault
+  // (objeto inexistente) y la task reintentaría. Capability false = no tocar.
+  const supported = (sec) => {
+    const caps = profile.capabilities || {};
+    if (sec === 'wifi') {
+      const radios = ['wifi.radio.2g', 'wifi.radio.5g'].filter((r) => caps[r]);
+      if (radios.length === 0) return true;
+      return radios.some((r) => caps[r].supported !== false);
+    }
+    return !caps[sec] || caps[sec].supported !== false;
+  };
   const targets = [];
   if (!group) {
     targets.push('device');
@@ -290,6 +308,7 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
   }
   const taskIds = [];
   const sections = {};
+  let enqueued = 0;
   if (targets.length === 0) return { taskIds, sections };
 
   const db = getDb();
@@ -301,6 +320,7 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
   for (const t of targets) {
     const maxAge = cfg[t];
     if (!Number.isFinite(maxAge) || maxAge <= 0) continue;
+    if (!supported(t)) continue;
     const base = t === 'device' ? 'InternetGatewayDevice.DeviceInfo' : sectionBasePath(profile, t);
     if (!base) continue;
     let snap = {};
@@ -320,6 +340,7 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
     };
     if (!stale) continue;
     if (offline) continue; // nacería vencida: no encolar
+    if (enqueued >= maxPerCall) continue; // tope por request: no inundar la cola
     const objects = (t === 'device') ? [base] : (resolveSectionObjects(profile, t, snap) || [base]);
     for (const objectName of objects) {
       // Objeto base (sin {i} o fallback) → refresh:<section>; instancia → refresh:<section>:<objeto>.
@@ -336,6 +357,7 @@ async function maybeAutoRefresh(req, deviceRow, profile, group) {
         continue;
       }
       const taskId = createPendingTask({ serial: deviceRow.serial, deviceRow, profile, action, payloadCanonical: {}, ttlSeconds, req });
+      enqueued++;
       taskIds.push(taskId);
     }
   }

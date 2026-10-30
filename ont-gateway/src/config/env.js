@@ -48,7 +48,19 @@ function getEnv() {
     }
   }
 
-  return { port, dbPath, nbiUrl, sectionMaxAge };
+  // Control de carga del task-runner. Un barrido de flota puede encolar miles de
+  // tasks: el runner procesa por lotes acotados y con presupuesto de tiempo por
+  // ciclo, para no martillar el NBI ni bloquear el resto del gateway.
+  const intOr = (raw, def, min) => {
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n >= min ? n : def;
+  };
+  const taskBatchSize = intOr(process.env.GATEWAY_TASK_BATCH_SIZE, 60, 1);
+  const taskTickBudgetMs = intOr(process.env.GATEWAY_TASK_TICK_BUDGET_MS, 45000, 1000);
+  // Máximo de refrescos automáticos que un solo GET puede encolar.
+  const autoRefreshMaxPerCall = intOr(process.env.GATEWAY_AUTOREFRESH_MAX_PER_CALL, 2, 1);
+
+  return { port, dbPath, nbiUrl, sectionMaxAge, taskBatchSize, taskTickBudgetMs, autoRefreshMaxPerCall };
 }
 
 module.exports = { getEnv };

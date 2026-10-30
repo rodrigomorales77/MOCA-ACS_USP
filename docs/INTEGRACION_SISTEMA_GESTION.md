@@ -132,9 +132,10 @@ Toda lectura trae su edad — **siempre mire `freshness` antes que el valor**:
 - **Regla de oro:** `stale: false` con `age_min` medido → uselo. `stale: true` → no hace
   falta que pida nada: ya se está refrescando (o el equipo está caído). Para forzarlo, o
   para secciones `unmeasured`: `POST /refresh?section=X` (o `?max_age=<seg>`, que solo crea
-  la task si el dato no está fresco). Hoy `wan` tiene refresh por sección en Huawei y Zhone;
-  `device` siempre. Las demás secciones (`lan`, `wifi`, `gpon`) se sirven sin refresh
-  automático: si necesitás forzarlas, consultá disponibilidad antes de integrar.
+  la task si el dato no está fresco). Cobertura de refresh por sección: `device` siempre;
+  Huawei (`HS8145X6`, `HG8546M`, `AG1720`): `wan`, `lan`, `wifi`, `gpon` (en `AG1720` sin
+  `wifi`, que el modelo no tiene); Zhone: `wan`, `wifi`, `gpon` (el `lan` de Zhone viaja en
+  el mismo subtree que `wan`). Un `?section=` no soportado por el modelo devuelve `422`.
 
 ### 5.1 Equipo nuevo o sin lecturas previas (cold start)
 
@@ -167,7 +168,10 @@ refresh (nacería vencido) y lo reporta como `reason: "offline_ttl"`. En ese cas
 llega cuando el equipo vuelva a informar: no insista con refresh en loop.
 
 > Nota de flota: el primer barrido completo puede encontrar muchos equipos así. Conviene
-> hacerlo escalonado (por lotes), no todo junto, para no saturar la cola del ACS.
+> hacerlo escalonado (por lotes), no todo junto. El gateway acota la cola: cada lectura
+> encola como máximo 2 refrescos y el procesamiento va por lotes acotados, así que un
+> barrido grande drena de forma sostenida sin tumbar el ACS — pero tarda. Si necesitás la
+> flota completa lista rápido, avisá para coordinarlo.
 
 
 Ejemplo: WAN con instancias (internet + MGMT) en una Huawei:
@@ -260,7 +264,8 @@ GET  $BASE/onts/<SERIAL>/gpon
 GET  $BASE/onts/<SERIAL>/diagnostics                 # sensores
 
 # ── Refresco (si freshness dice stale) ────────────────────────────
-POST $BASE/onts/<SERIAL>/refresh?section=wan         # o device/gpon; max_age=<seg> opcional
+POST $BASE/onts/<SERIAL>/refresh?section=<seccion>   # device|wan|lan|wifi|gpon segun modelo
+                                                     # max_age=<seg> opcional
 POST $BASE/onts/<SERIAL>/refresh?max_age=<seg>       # solo crea task si el dato no esta fresco
 
 # ── Acciones y escrituras (async: poll hasta applied) ────────────
